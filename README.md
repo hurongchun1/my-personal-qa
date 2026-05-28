@@ -1,0 +1,245 @@
+# My Personal QA - 个人知识库问答系统
+
+基于 RAG (Retrieval-Augmented Generation) 技术的个人知识库问答系统，支持多种文档格式的解析和智能问答。
+
+## 功能特性
+
+- **多格式文档支持**：PDF、HTML、Markdown
+- **多种分块策略**：
+  - 字符分割（RecursiveCharacterTextSplitter）
+  - Token 分割（TokenTextSplitter）
+  - 语义分割（SemanticChunker）
+  - Markdown 格式分割（MarkdownTextSplitter）
+  - HTML 结构分割（HTMLHeaderTextSplitter）
+- **向量存储**：使用 FAISS 进行高效的向量检索
+- **智能问答**：基于阿里云 DashScope 的大语言模型
+- **解耦架构**：策略模式 + 字典映射，易于扩展
+
+## 项目结构
+
+```
+my-personal-qa/
+├── config.py              # 配置文件（API Key、模型配置）
+├── main.py                # 主程序入口
+├── rag_engine.py          # RAG 引擎
+├── requirements.txt       # 依赖包
+├── doc/                   # 文档存放目录
+│   └── *.pdf
+├── faiss/                 # FAISS 向量索引
+│   ├── index.faiss
+│   └── index.pkl
+├── parser/                # 文档解析器
+│   ├── __init__.py
+│   ├── base_loader.py     # 基类
+│   ├── pdf_loader.py      # PDF 解析器
+│   ├── html_loader.py     # HTML 解析器
+│   └── markdown_loader.py # Markdown 解析器
+└── storage/               # 存储层
+    └── faiss_storage.py   # FAISS 存储管理
+```
+
+## 核心设计
+
+### 1. 解析器架构
+
+采用策略模式，每种文件类型对应一个解析器类：
+
+```
+BaseLoader (基类)
+├── PDFLoader
+├── HtmlLoader
+└── MarkdownLoader
+```
+
+### 2. 解耦的调度机制
+
+使用双重字典映射，避免 if-else：
+
+```python
+# 文件类型 -> 解析器类
+LOADER_MAP = {
+    "pdf": PDFLoader,
+    "markdown": MarkdownLoader,
+    "md": MarkdownLoader,      # 别名
+    "html": HtmlLoader,
+    "htm": HtmlLoader,         # 别名
+}
+
+# 文件类型 -> 分块方法 -> 具体实现
+METHOD_MAP = {
+    "pdf": {
+        "default": lambda loader, source, **kw: loader.parse(...),
+        "token": lambda loader, source, **kw: loader.token_text_parser(...),
+        "semantic": lambda loader, source, **kw: loader.semantic_text_parser(...),
+    },
+    # ... 其他类型
+}
+```
+
+### 3. 懒加载 + 缓存
+
+解析器只在首次使用时创建，并缓存后续复用：
+
+```python
+def get_loader(self, file_type):
+    if file_type in self._loaders:
+        return self._loaders[file_type]  # 缓存命中
+    loader = LOADER_MAP[file_type]()
+    self._loaders[file_type] = loader    # 缓存
+    return loader
+```
+
+## 快速开始
+
+### 1. 环境准备
+
+```bash
+# 创建虚拟环境
+python -m venv venv
+
+# 激活虚拟环境
+# Windows
+venv\Scripts\activate
+# Linux/Mac
+source venv/bin/activate
+
+# 安装依赖
+pip install -r requirements.txt
+```
+
+### 2. 配置 API Key
+
+设置环境变量 `DASHSCOPE_API_KEY`：
+
+```bash
+# Windows
+set DASHSCOPE_API_KEY=your_api_key_here
+
+# Linux/Mac
+export DASHSCOPE_API_KEY=your_api_key_here
+```
+
+或创建 `.env` 文件：
+
+```
+DASHSCOPE_API_KEY=your_api_key_here
+```
+
+### 3. 使用示例
+
+```python
+from storage.faiss_storage import FaissStorage
+
+# 初始化存储
+storage = FaissStorage()
+
+# 解析 PDF 文档（默认分块）
+chunks = storage.parse_document("pdf", "doc/example.pdf")
+
+# 解析 PDF 文档（Token 分块）
+chunks = storage.parse_document("pdf", "doc/example.pdf", "token", 
+                                chunk_size=500, chunk_overlap=50)
+
+# 解析 Markdown 文档
+chunks = storage.parse_document("md", "doc/readme.md", "markdown")
+
+# 解析 HTML 网页
+chunks = storage.parse_document("html", "https://example.com", "html_splitter")
+```
+
+## 支持的分块方法
+
+| 文件类型 | 方法名 | 说明 |
+|---------|--------|------|
+| PDF | `default` | 按字符数分割（默认） |
+| PDF | `token` | 按 Token 数量分割 |
+| PDF | `semantic` | 基于语义理解分割 |
+| HTML | `default` | HTML 结构分割（默认） |
+| HTML | `html_splitter` | 同 default |
+| HTML | `semantic` | 语义分割 |
+| Markdown | `default` | 按字符数分割（默认） |
+| Markdown | `token` | 按 Token 数量分割 |
+| Markdown | `semantic` | 语义分割 |
+| Markdown | `markdown` | 按 Markdown 格式分割 |
+
+## 技术栈
+
+- **LangChain**：文本分割、嵌入模型
+- **FAISS**：向量数据库
+- **DashScope**：阿里云 AI 服务（嵌入 + LLM）
+- **PyPDF2**：PDF 解析
+- **BeautifulSoup**：HTML 解析
+- **Rich**：终端美化输出
+
+## 开发进度
+
+### 已完成
+
+- [x] **文档解析器** (`parser/`)
+  - [x] `BaseLoader` 基类定义
+  - [x] `PDFLoader` - PDF 文档解析
+  - [x] `HtmlLoader` - HTML 网页解析
+  - [x] `MarkdownLoader` - Markdown 文档解析
+  - [x] `__init__.py` - 统一导入管理
+
+- [x] **存储层** (`storage/`)
+  - [x] `FaissStorage` - FAISS 向量存储管理
+  - [x] 懒加载 + 缓存机制
+  - [x] 解耦的分块方法调度（字典映射）
+
+- [x] **配置** (`config.py`)
+  - [x] API Key 配置
+  - [x] 模型配置（Embedding + LLM）
+  - [x] 路径配置
+
+- [x] **文档**
+  - [x] README.md
+
+### 待完成
+
+- [ ] **RAG 引擎** (`rag_engine.py`)
+  - [ ] 向量检索逻辑
+  - [ ] 上下文组装
+  - [ ] Prompt 模板设计
+  - [ ] LLM 调用封装
+
+- [ ] **主程序** (`main.py`)
+  - [ ] 交互式问答界面
+  - [ ] 命令行参数支持
+  - [ ] 文档导入流程
+  - [ ] 问答流程整合
+
+- [ ] **知识库管理**
+  - [ ] 文档增删改查
+  - [ ] 向量索引更新
+  - [ ] 文档元数据管理
+
+- [ ] **高级功能**
+  - [ ] 多轮对话支持
+  - [ ] 对话历史管理
+  - [ ] 检索结果排序优化
+  - [ ] 回答质量评估
+
+## 扩展指南
+
+### 添加新的文件类型
+
+1. 在 `parser/` 下创建新的解析器类，继承 `BaseLoader`
+2. 在 `storage/faiss_storage.py` 的 `LOADER_MAP` 中添加映射
+3. 在 `METHOD_MAP` 中添加对应的分块方法
+
+```python
+# 示例：添加 Word 文档支持
+from parser.word_loader import WordLoader
+
+LOADER_MAP["docx"] = WordLoader
+
+METHOD_MAP["docx"] = {
+    "default": lambda loader, source, **kw: loader.parse(...),
+    # ... 其他方法
+}
+```
+
+## License
+
+MIT
