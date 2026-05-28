@@ -11,9 +11,11 @@
   - 语义分割（SemanticChunker）
   - Markdown 格式分割（MarkdownTextSplitter）
   - HTML 结构分割（HTMLHeaderTextSplitter）
-- **向量存储**：使用 FAISS 进行高效的向量检索
+- **多向量库支持**：
+  - FAISS（本地向量数据库）
+  - Elasticsearch（分布式搜索引擎）
 - **智能问答**：基于阿里云 DashScope 的大语言模型
-- **解耦架构**：策略模式 + 字典映射，易于扩展
+- **解耦架构**：策略模式 + 工厂模式，易于扩展
 
 ## 项目结构
 
@@ -23,6 +25,7 @@ my-personal-qa/
 ├── main.py                # 主程序入口
 ├── rag_engine.py          # RAG 引擎
 ├── requirements.txt       # 依赖包
+├── example_usage.py       # 使用示例
 ├── doc/                   # 文档存放目录
 │   └── *.pdf
 ├── faiss/                 # FAISS 向量索引
@@ -35,7 +38,11 @@ my-personal-qa/
 │   ├── html_loader.py     # HTML 解析器
 │   └── markdown_loader.py # Markdown 解析器
 └── storage/               # 存储层
-    └── faiss_storage.py   # FAISS 存储管理
+    ├── __init__.py         # 包导出
+    ├── base_storage.py     # 向量库抽象基类
+    ├── faiss_storage.py    # FAISS 实现
+    ├── elasticsearch_storage.py  # Elasticsearch 实现
+    └── storage_factory.py  # 向量库工厂类
 ```
 
 ## 核心设计
@@ -51,7 +58,19 @@ BaseLoader (基类)
 └── MarkdownLoader
 ```
 
-### 2. 解耦的调度机制
+### 2. 向量库架构
+
+采用**抽象工厂模式**，支持多种向量库：
+
+```
+VectorStorage (抽象基类)
+├── FaissStorage (FAISS 实现)
+└── ElasticsearchStorage (Elasticsearch 实现)
+
+StorageFactory (工厂类)
+```
+
+### 3. 解耦的调度机制
 
 使用双重字典映射，避免 if-else：
 
@@ -76,7 +95,7 @@ METHOD_MAP = {
 }
 ```
 
-### 3. 懒加载 + 缓存
+### 4. 懒加载 + 缓存
 
 解析器只在首次使用时创建，并缓存后续复用：
 
@@ -87,6 +106,24 @@ def get_loader(self, file_type):
     loader = LOADER_MAP[file_type]()
     self._loaders[file_type] = loader    # 缓存
     return loader
+```
+
+### 5. 工厂模式
+
+通过工厂类创建不同的向量库实例：
+
+```python
+from storage import StorageFactory
+
+# 创建 FAISS 向量库
+faiss_storage = StorageFactory.create_storage("faiss")
+
+# 创建 Elasticsearch 向量库
+es_storage = StorageFactory.create_storage("elasticsearch")
+
+# 使用方式完全相同
+faiss_storage.add_chunks("pdf", "default", "test.pdf")
+es_storage.add_chunks("pdf", "default", "test.pdf")
 ```
 
 ## 快速开始
@@ -125,26 +162,41 @@ export DASHSCOPE_API_KEY=your_api_key_here
 DASHSCOPE_API_KEY=your_api_key_here
 ```
 
-### 3. 使用示例
+### 3. 配置 Elasticsearch（可选）
+
+如果使用 Elasticsearch，设置以下环境变量：
+
+```bash
+# Windows
+set ES_HOST=http://localhost:9200
+set ES_INDEX_NAME=my-personal-qa
+
+# Linux/Mac
+export ES_HOST=http://localhost:9200
+export ES_INDEX_NAME=my-personal-qa
+```
+
+### 4. 使用示例
 
 ```python
-from storage.faiss_storage import FaissStorage
+from storage import StorageFactory
 
-# 初始化存储
-storage = FaissStorage()
+# 创建向量库实例（自动选择 FAISS 或 Elasticsearch）
+storage = StorageFactory.create_storage("faiss")  # 或 "elasticsearch"
 
-# 解析 PDF 文档（默认分块）
-chunks = storage.parse_document("pdf", "doc/example.pdf")
+# 添加文档到向量库
+storage.add_chunks(
+    file_type="pdf",
+    method="default",
+    source="doc/example.pdf",
+    chunk_size=512,
+    chunk_overlap=50
+)
 
-# 解析 PDF 文档（Token 分块）
-chunks = storage.parse_document("pdf", "doc/example.pdf", "token", 
-                                chunk_size=500, chunk_overlap=50)
-
-# 解析 Markdown 文档
-chunks = storage.parse_document("md", "doc/readme.md", "markdown")
-
-# 解析 HTML 网页
-chunks = storage.parse_document("html", "https://example.com", "html_splitter")
+# 搜索相似内容
+results = storage.search("查询内容", k=3)
+for doc in results:
+    print(doc.page_content)
 ```
 
 ## 支持的分块方法
@@ -155,17 +207,17 @@ chunks = storage.parse_document("html", "https://example.com", "html_splitter")
 | PDF | `token` | 按 Token 数量分割 |
 | PDF | `semantic` | 基于语义理解分割 |
 | HTML | `default` | HTML 结构分割（默认） |
-| HTML | `html_splitter` | 同 default |
+| HTML | `character` | 按字符数分割 |
 | HTML | `semantic` | 语义分割 |
 | Markdown | `default` | 按字符数分割（默认） |
 | Markdown | `token` | 按 Token 数量分割 |
 | Markdown | `semantic` | 语义分割 |
-| Markdown | `markdown` | 按 Markdown 格式分割 |
 
 ## 技术栈
 
 - **LangChain**：文本分割、嵌入模型
-- **FAISS**：向量数据库
+- **FAISS**：本地向量数据库
+- **Elasticsearch**：分布式搜索引擎
 - **DashScope**：阿里云 AI 服务（嵌入 + LLM）
 - **PyPDF2**：PDF 解析
 - **BeautifulSoup**：HTML 解析
@@ -183,7 +235,10 @@ chunks = storage.parse_document("html", "https://example.com", "html_splitter")
   - [x] `__init__.py` - 统一导入管理
 
 - [x] **存储层** (`storage/`)
+  - [x] `VectorStorage` - 向量库抽象基类
   - [x] `FaissStorage` - FAISS 向量存储管理
+  - [x] `ElasticsearchStorage` - Elasticsearch 向量存储管理
+  - [x] `StorageFactory` - 向量库工厂类
   - [x] 懒加载 + 缓存机制
   - [x] 解耦的分块方法调度（字典映射）
 
@@ -191,6 +246,7 @@ chunks = storage.parse_document("html", "https://example.com", "html_splitter")
   - [x] API Key 配置
   - [x] 模型配置（Embedding + LLM）
   - [x] 路径配置
+  - [x] Elasticsearch 配置
 
 - [x] **文档**
   - [x] README.md
@@ -225,7 +281,7 @@ chunks = storage.parse_document("html", "https://example.com", "html_splitter")
 ### 添加新的文件类型
 
 1. 在 `parser/` 下创建新的解析器类，继承 `BaseLoader`
-2. 在 `storage/faiss_storage.py` 的 `LOADER_MAP` 中添加映射
+2. 在 `storage/base_storage.py` 的 `LOADER_MAP` 中添加映射
 3. 在 `METHOD_MAP` 中添加对应的分块方法
 
 ```python
@@ -237,6 +293,24 @@ LOADER_MAP["docx"] = WordLoader
 METHOD_MAP["docx"] = {
     "default": lambda loader, source, **kw: loader.parse(...),
     # ... 其他方法
+}
+```
+
+### 添加新的向量库
+
+1. 在 `storage/` 下创建新的存储类，继承 `VectorStorage`
+2. 实现 `add_chunks()` 和 `search()` 方法
+3. 在 `storage/storage_factory.py` 的 `SUPPORTED_TYPES` 中添加映射
+
+```python
+# 示例：添加 Milvus 支持
+from storage.milvus_storage import MilvusStorage
+
+SUPPORTED_TYPES = {
+    "faiss": FaissStorage,
+    "elasticsearch": ElasticsearchStorage,
+    "es": ElasticsearchStorage,
+    "milvus": MilvusStorage,  # 新增
 }
 ```
 

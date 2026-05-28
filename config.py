@@ -32,5 +32,9 @@ client = OpenAI(
 # ===== 存储路径 ======
 FAISS_PATH = os.path.join(os.path.dirname(__file__),"faiss")
 
+# ===== Elasticsearch配置 ======
+ES_HOST = os.getenv("ES_HOST", "http://localhost:9200")
+ES_INDEX_NAME = os.getenv("ES_INDEX_NAME", "my-personal-qa")
+
 # ===== 文档路径 ======
 DOC_PATH = os.path.join(os.path.dirname(__file__),'doc')

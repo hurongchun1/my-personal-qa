@@ -1,69 +1,69 @@
-from multiprocessing import Value
-from requests import get
-from  parser import PDFLoader,HtmlLoader,MarkdownLoader
+import os
+from typing import List, Any
+from config import dashscope_embedding, FAISS_PATH
+from langchain_community.vectorstores import FAISS
+from storage.base_storage import VectorStorage
 
 
-# 解析器映射字典
-LOADER_MAP = {
-    "htm":HtmlLoader,
-    "html":HtmlLoader,
-    "pdf":PDFLoader,
-    "md":MarkdownLoader,
-    "markdown":MarkdownLoader
-}
-
-# 解析器方法映射字典
-METHOD_MAP = {
-    "pdf":{
-        "default": lambda loader,source,**kv:loader.parse(source,kv.get("chunk_size",512),kv.get("chunk_overlap",50)),
-        "token": lambda loader,source,**kv:loader.token_text_parser(source,kv.get("file_path"),kv.get("chunk_size"),kv.get("chunk_overlap")),
-        "semantic": lambda loader,source,**kv:loader.semantic_text_parser(source,kv.get("file_path"),kv.get("embedding"))
-    },
-    "html":{
-        "character": lambda loader,source,**kv:loader.parse(source,kv.get("file_path"),kv.get("chunk_size"),kv.get("chunk_overlap")),
-        "semantic": lambda loader,source,**kv:loader.parse_by_semantic(source,kv.get("url"),kv.get("embedding")),
-        "default": lambda loader,source,**kv:loader.parse_by_html_splitter(source,kv.get("url"),kv.get("headers_to_split_on"))
-    },
-    "htm":{
-        "character": lambda loader,source,**kv:loader.parse(source,kv.get("file_path"),kv.get("chunk_size"),kv.get("chunk_overlap")),
-        "semantic": lambda loader,source,**kv:loader.parse_by_semantic(source,kv.get("url"),kv.get("embedding")),
-        "default": lambda loader,source,**kv:loader.parse_by_html_splitter(source,kv.get("url"),kv.get("headers_to_split_on"))
-    },
-    "markdown":{
-        "default": lambda loader,source,**kv:loader.parse(source,kv.get("file_path"),kv.get("chunk_size"),kv.get("chunk_overlap")),
-        "token": lambda loader,source,**kv:loader.token_text_parser(source,kv.get("file_path"),kv.get("chunk_size"),kv.get("chunk_overlap")),
-        "semantic": lambda loader,source,**kv:loader.Semantic_text_parser(source,kv.get("file_path"),kv.get("embedding"))
-    },
-    "md":{
-        "default": lambda loader,source,**kv:loader.parse(source,kv.get("file_path"),kv.get("chunk_size"),kv.get("chunk_overlap")),
-        "token": lambda loader,source,**kv:loader.token_text_parser(source,kv.get("file_path"),kv.get("chunk_size"),kv.get("chunk_overlap")),
-        "semantic": lambda loader,source,**kv:loader.Semantic_text_parser(source,kv.get("file_path"),kv.get("embedding"))
-    }
-}
-
-class FaissStorage:
-
+class FaissStorage(VectorStorage):
+    """FAISS向量库存储实现"""
+    
     def __init__(self):
-        self._parser_loaders = {}
+        super().__init__()
+        # 缓存向量库实例
         self._vector_store = None
+    
+    def _load_vector_store(self) -> FAISS | None:
+        """加载向量库，如果已缓存则直接返回"""
+        if self._vector_store is not None:
+            return self._vector_store
         
-
-    def get_loader(self,file_type):
-        if not file_type:
-            raise ValueError("file_type is empty")
+        # 加载向量库，检查文件是否存在
+        if os.path.exists(FAISS_PATH):
+            # 从磁盘加载
+            self._vector_store = FAISS.load_local(FAISS_PATH, dashscope_embedding)
+        else:
+            # 文件不存在，返回None
+            self._vector_store = None
         
-        # 转换为小写，去除空格
-        file_type = file_type.lower().strip()
-
-        if file_type not in LOADER_MAP:
-            raise ValueError("file_type is not supported")
+        return self._vector_store
+    
+    def add_chunks(self, file_type: str, method: str, source: str, **kv) -> FAISS:
+        """添加分块到FAISS向量库
         
-
-        # 查询parser_loader是有已经加载
-        if file_type in self._parser_loaders:
-            return self._parser_loaders[file_type]
+        return FAISS向量库实例
+        """
+        # 解析文档
+        chunks = self._parse_document(file_type, method, source, **kv)
         
-        # 加载 parser_loader
-        loader = LOADER_MAP.get(file_type)
-        self._parser_loaders[file_type] = loader
-        return loader
+        # 加载或创建向量库
+        self._vector_store = self._load_vector_store()
+        
+        if self._vector_store is None:
+            # 第一次创建向量库
+            self._vector_store = FAISS.from_texts(chunks, dashscope_embedding)
+        else:
+            # 追加到已有向量库
+            self._vector_store.add_texts(chunks)
+        
+        # 保存到磁盘
+        if self._vector_store is not None:
+            self._vector_store.save_local(FAISS_PATH)
+        else:
+            raise RuntimeError("向量库创建失败")
+        
+        return self._vector_store
+    
+    def search(self, query: str, k: int = 3) -> List[Any]:
+        """搜索相似内容
+        
+        return 搜索结果列表
+        """
+        # 加载向量库
+        vector_store = self._load_vector_store()
+        
+        if vector_store is None:
+            return []
+        
+        # 执行搜索
+        return vector_store.similarity_search(query, k=k)
