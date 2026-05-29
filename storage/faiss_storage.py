@@ -1,69 +1,134 @@
 import os
-from typing import List, Any
-from config import dashscope_embedding, FAISS_PATH
+from typing import Optional
+from typing_extensions import override
+import uuid
 from langchain_community.vectorstores import FAISS
+from config import FAISS_PATH, dashscope_embedding
 from storage.base_storage import VectorStorage
 
 
 class FaissStorage(VectorStorage):
-    """FAISS向量库存储实现"""
     
+    # 初始化后的参数配置
     def __init__(self):
         super().__init__()
-        # 缓存向量库实例
-        self._vector_store = None
-    
-    def _load_vector_store(self) -> FAISS | None:
-        """加载向量库，如果已缓存则直接返回"""
+        self._vector_store: Optional[FAISS] = None
+        
+
+    # 加载向量库
+    def _load_vector_store(self):
+
+        # 加载向量库缓存，如果已缓存直接返回
         if self._vector_store is not None:
             return self._vector_store
         
-        # 加载向量库，检查文件是否存在
+        # 没有缓存，需要加载向量库
         if os.path.exists(FAISS_PATH):
-            # 从磁盘加载
-            self._vector_store = FAISS.load_local(FAISS_PATH, dashscope_embedding)
+            self._vector_store = FAISS.load_local(FAISS_PATH,dashscope_embedding)
+        
         else:
-            # 文件不存在，返回None
             self._vector_store = None
-        
+
         return self._vector_store
-    
-    def add_chunks(self, file_type: str, method: str, source: str, **kv) -> FAISS:
-        """添加分块到FAISS向量库
+
+    # 添加分块到向量库中
+    def add_chunks(self,file_type,method,source,**kv):
         
-        return FAISS向量库实例
-        """
-        # 解析文档
-        chunks = self._parse_document(file_type, method, source, **kv)
-        
-        # 加载或创建向量库
-        self._vector_store = self._load_vector_store()
-        
-        if self._vector_store is None:
-            # 第一次创建向量库
-            self._vector_store = FAISS.from_texts(chunks, dashscope_embedding)
-        else:
-            # 追加到已有向量库
-            self._vector_store.add_texts(chunks)
-        
-        # 保存到磁盘
-        if self._vector_store is not None:
-            self._vector_store.save_local(FAISS_PATH)
-        else:
-            raise RuntimeError("向量库创建失败")
-        
-        return self._vector_store
-    
-    def search(self, query: str, k: int = 3) -> List[Any]:
-        """搜索相似内容
-        
-        return 搜索结果列表
-        """
+        # 调用父类的解析方法获取分块
+        chunks = self._parse_document(file_type,method,source,**kv)
+
+        # 生成唯一ID
+        ids = [str(uuid.uuid4()) for _ in chunks]
+
         # 加载向量库
-        vector_store = self._load_vector_store()
+        self._vector_store = self._load_vector_store()
+
+        if self._vector_store is None:
+            # 首次创建
+            self._vector_store = FAISS.from_texts(
+                texts = chunks,
+                embedding = dashscope_embedding,
+                ids = ids
+            )
         
-        if vector_store is None:
-            return []
+        else :
+            # 说明存在向量库，追加内容
+            self._vector_store.add_texts(
+                texts = chunks,
+                ids = ids
+            )
+
+        # 保存到本地
+        self._vector_store.save_local(FAISS_PATH)
+
+        # 返回（向量库实例，ID列表）
+        return self._vector_store,ids
+
         
-        # 执行搜索
-        return vector_store.similarity_search(query, k=k)
+    def delete_chunks(self,ids):
+        '''删除指定ID的向量
+
+        Args:
+            ids：要删除的向量ID列表
+
+        return：
+            bool：删除是否成功
+        '''
+        # 加载向量库
+        self._vector_store = self._load_vector_store()
+
+        # 检查向量库是否存在
+        if self._vector_store is None:
+            return False
+
+        # 调用删除方法删除
+        result = self._vector_store.delete(ids)
+
+        # 保存到本地
+        if result:
+            self._vector_store.save_local(FAISS_PATH)
+
+        # 返回 True/False
+        return result
+
+    @override
+    def update_chunks(self,ids,new_texts,new_metadatas,**kv):
+        '''更新指定ID的向量
+        
+        Args:
+            ids：要更新的向量ID列表
+            new_texts:新的分块内容
+            new_metadatas:新的元信息
+        
+        return
+            bool: 更新是否成功
+        '''
+        # 加载向量库
+        self._vector_store = self._load_vector_store()
+
+        # 检查向量库是否存在
+        if self._vector_store is None:
+            return False
+
+        # 更新向量库,需要先删除后更新
+        is_deleted = self._vector_store.delete(ids=ids)
+
+        if not is_deleted:
+            return False
+        
+        self._vector_store.add_texts(
+            texts = new_texts,
+            metadatas = new_metadatas,
+            ids = ids
+        )
+        
+        # 保存到本地
+        self._vector_store.save_local(FAISS_PATH)
+        
+        return True
+
+        
+
+
+
+
