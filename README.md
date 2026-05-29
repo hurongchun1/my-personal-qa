@@ -253,6 +253,14 @@ for doc in results:
 
 ### 待完成
 
+- [ ] **FAISS 存储层完善** (`storage/faiss_storage.py`)
+  - [ ] 方法命名规范：`add_chunk` → `add_chunks`，`delete_chunk` → `delete_chunks`
+  - [ ] 文档字符串修正：`Arags` → `Args`
+  - [ ] 删除未使用的导入
+  - [ ] 实现 `search()` 方法 - 搜索相似内容
+  - [ ] 实现 `get_all_ids()` 方法 - 获取所有向量ID
+  - [ ] 添加类型注解和返回类型
+
 - [ ] **RAG 引擎** (`rag_engine.py`)
   - [ ] 向量检索逻辑
   - [ ] 上下文组装
@@ -269,6 +277,7 @@ for doc in results:
   - [ ] 文档增删改查
   - [ ] 向量索引更新
   - [ ] 文档元数据管理
+  - [ ] 分块内容与ID关联存储（数据库）
 
 - [ ] **高级功能**
   - [ ] 多轮对话支持
