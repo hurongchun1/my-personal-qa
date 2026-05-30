@@ -236,42 +236,43 @@ for doc in results:
 
 - [x] **存储层** (`storage/`)
   - [x] `VectorStorage` - 向量库抽象基类
-  - [x] `FaissStorage` - FAISS 向量存储管理
+  - [x] `FaissStorage` - FAISS 向量存储管理（add/delete/update/search）
   - [x] `ElasticsearchStorage` - Elasticsearch 向量存储管理
   - [x] `StorageFactory` - 向量库工厂类
   - [x] 懒加载 + 缓存机制
   - [x] 解耦的分块方法调度（字典映射）
+
+- [x] **RAG 引擎** (`rag_engine.py`)
+  - [x] 向量检索逻辑
+  - [x] 上下文组装
+  - [x] Prompt 模板设计
+  - [x] LLM 调用封装（DashScope）
 
 - [x] **配置** (`config.py`)
   - [x] API Key 配置
   - [x] 模型配置（Embedding + LLM）
   - [x] 路径配置
   - [x] Elasticsearch 配置
+  - [x] 存储类型配置
+
+- [x] **测试** (`tests/`)
+  - [x] `test_faiss_storage.py` - FAISS 存储集成测试
+  - [x] `test_rag_engine.py` - RAG 引擎集成测试
 
 - [x] **文档**
   - [x] README.md
 
 ### 待完成
 
-- [ ] **FAISS 存储层完善** (`storage/faiss_storage.py`)
-  - [ ] 方法命名规范：`add_chunk` → `add_chunks`，`delete_chunk` → `delete_chunks`
-  - [ ] 文档字符串修正：`Arags` → `Args`
-  - [ ] 删除未使用的导入
-  - [ ] 实现 `search()` 方法 - 搜索相似内容
-  - [ ] 实现 `get_all_ids()` 方法 - 获取所有向量ID
-  - [ ] 添加类型注解和返回类型
-
-- [ ] **RAG 引擎** (`rag_engine.py`)
-  - [ ] 向量检索逻辑
-  - [ ] 上下文组装
-  - [ ] Prompt 模板设计
-  - [ ] LLM 调用封装
-
 - [ ] **主程序** (`main.py`)
   - [ ] 交互式问答界面
   - [ ] 命令行参数支持
   - [ ] 文档导入流程
   - [ ] 问答流程整合
+
+- [ ] **查询改写** (`query_rewriter.py`)
+  - [ ] 用户问题改写优化
+  - [ ] 提高检索准确率
 
 - [ ] **知识库管理**
   - [ ] 文档增删改查

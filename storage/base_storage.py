@@ -64,8 +64,9 @@ class VectorStorage(ABC):
         if file_type in self._parser_loaders:
             return self._parser_loaders[file_type]
         
-        # 加载 parser_loader
-        loader = LOADER_MAP.get(file_type)
+        # 加载 parser_loader 实例 这里需要实例化后才能调用
+        loader_class = LOADER_MAP[file_type]
+        loader = loader_class()
         self._parser_loaders[file_type] = loader
         return loader
     
@@ -121,54 +122,3 @@ class VectorStorage(ABC):
         
         # 执行分块操作
         return methods[method](loader, source, **kv)
-    
-    @abstractmethod
-    def add_chunks(self, file_type: str, method: str, source: str, **kv) -> tuple[Any, List[str]]:
-        """添加分块到向量库
-        
-        return (向量库实例, 生成的ID列表)
-        """
-        pass
-    
-    @abstractmethod
-    def search(self, query: str, k: int = 3) -> List[Any]:
-        """搜索相似内容
-        
-        return 搜索结果列表
-        """
-        pass
-    
-    @abstractmethod
-    def delete_chunks(self, ids: List[str]) -> bool:
-        """删除指定ID的向量
-        
-        Args:
-            ids: 要删除的向量ID列表
-            
-        Returns:
-            bool: 删除是否成功
-        """
-        pass
-    
-    @abstractmethod
-    def update_chunks(self, ids: List[str], new_texts: List[str], new_metadatas: Optional[List[Dict[str, Any]]] = None) -> bool:
-        """更新指定ID的向量
-        
-        Args:
-            ids: 要更新的向量ID列表
-            new_texts: 新的文本内容列表
-            new_metadatas: 新的元数据列表（可选）
-            
-        Returns:
-            bool: 更新是否成功
-        """
-        pass
-    
-    @abstractmethod
-    def get_all_ids(self) -> List[str]:
-        """获取所有向量的ID
-        
-        Returns:
-            List[str]: 所有向量的ID列表
-        """
-        pass

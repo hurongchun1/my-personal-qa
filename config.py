@@ -24,7 +24,7 @@ dashscope_embedding = DashScopeEmbeddings(
 )
 
 # ===== 客户端初始化 =====
-client = OpenAI(
+CLIENT = OpenAI(
     api_key=DASHSCOPE_API_KEY,
     base_url=BASE_URL
 )
@@ -38,3 +38,6 @@ ES_INDEX_NAME = os.getenv("ES_INDEX_NAME", "my-personal-qa")
 
 # ===== 文档路径 ======
 DOC_PATH = os.path.join(os.path.dirname(__file__),'doc')
+
+# ===== 存储类型 ======
+STORAGE_TYPE = "faiss"
