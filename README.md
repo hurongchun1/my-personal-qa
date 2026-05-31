@@ -22,10 +22,19 @@
 ```
 my-personal-qa/
 ├── config.py              # 配置文件（API Key、模型配置）
-├── main.py                # 主程序入口
+├── main.py                # 主程序入口（FastAPI 启动）
 ├── rag_engine.py          # RAG 引擎
+├── query_rewriter.py      # 问题重写器
 ├── requirements.txt       # 依赖包
-├── example_usage.py       # 使用示例
+├── test_api.py            # API 测试脚本
+├── api/                   # FastAPI API 模块
+│   ├── __init__.py
+│   ├── app.py             # FastAPI 主应用
+│   ├── models.py          # 数据模型定义
+│   ├── dependencies.py    # 依赖项管理
+│   └── routers/           # 路由模块
+│       ├── __init__.py
+│       └── query.py       # 问答路由
 ├── doc/                   # 文档存放目录
 │   └── *.pdf
 ├── faiss/                 # FAISS 向量索引
@@ -248,6 +257,26 @@ for doc in results:
   - [x] Prompt 模板设计
   - [x] LLM 调用封装（DashScope）
 
+- [x] **查询改写** (`query_rewriter.py`)
+  - [x] 问题类型分类（5种类型）
+  - [x] 上下文依赖型重写
+  - [x] 对比型重写
+  - [x] 模糊指代型重写
+  - [x] 多意图型重写
+  - [x] 反问型重写
+  - [x] 自动判断调度器
+
+- [x] **FastAPI API** (`api/`)
+  - [x] FastAPI 应用配置 (`app.py`)
+  - [x] 数据模型定义 (`models.py`)
+  - [x] 依赖项管理 (`dependencies.py`)
+  - [x] 问答路由 (`routers/query.py`)
+  - [x] 简单问答接口 (`/api/ask`)
+  - [x] 重写问答接口 (`/api/rewrite-ask`)
+  - [x] 问题分类接口 (`/api/classify`)
+  - [x] 健康检查接口 (`/health`)
+  - [x] API 文档自动生成 (`/docs`)
+
 - [x] **配置** (`config.py`)
   - [x] API Key 配置
   - [x] 模型配置（Embedding + LLM）
@@ -258,9 +287,11 @@ for doc in results:
 - [x] **测试** (`tests/`)
   - [x] `test_faiss_storage.py` - FAISS 存储集成测试
   - [x] `test_rag_engine.py` - RAG 引擎集成测试
+  - [x] `test_api.py` - API 接口测试
 
 - [x] **文档**
   - [x] README.md
+  - [x] API 结构说明 (`api/README.md`)
 
 ### 待完成
 
@@ -269,10 +300,6 @@ for doc in results:
   - [ ] 命令行参数支持
   - [ ] 文档导入流程
   - [ ] 问答流程整合
-
-- [ ] **查询改写** (`query_rewriter.py`)
-  - [ ] 用户问题改写优化
-  - [ ] 提高检索准确率
 
 - [ ] **知识库管理**
   - [ ] 文档增删改查
@@ -285,6 +312,8 @@ for doc in results:
   - [ ] 对话历史管理
   - [ ] 检索结果排序优化
   - [ ] 回答质量评估
+  - [ ] 用户认证和权限管理
+  - [ ] 接口限流和缓存
 
 ## 扩展指南
 
