@@ -43,7 +43,7 @@ class RAGEngine:
         return response.output.choices[0].message.content
 
     
-    def rewritten_query_ask(self,query,conversation_history,context_info,k):
+    def rewritten_query_ask(self,query,conversation_history,context_info,k = 3):
         '''重写问题并回答问题
 
         Args：

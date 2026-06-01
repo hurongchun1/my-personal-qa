@@ -266,16 +266,22 @@ for doc in results:
   - [x] 反问型重写
   - [x] 自动判断调度器
 
-- [x] **FastAPI API** (`api/`)
-  - [x] FastAPI 应用配置 (`app.py`)
+- [x] **FastAPI API** (`api/`) - 手动编写
   - [x] 数据模型定义 (`models.py`)
+    - [x] `SimpleChatRequest` - 简单问答请求模型
+    - [x] `RewrittenChatRequest` - 重写问答请求模型
+    - [x] Pydantic Field 验证
   - [x] 依赖项管理 (`dependencies.py`)
+    - [x] 单例模式管理 RAGEngine 实例
+    - [x] 懒加载模式
+    - [x] 启动/关闭事件
   - [x] 问答路由 (`routers/query.py`)
-  - [x] 简单问答接口 (`/api/ask`)
-  - [x] 重写问答接口 (`/api/rewrite-ask`)
-  - [x] 问题分类接口 (`/api/classify`)
-  - [x] 健康检查接口 (`/health`)
-  - [x] API 文档自动生成 (`/docs`)
+    - [x] `/query/simple_chat` - 简单问答接口
+    - [x] `/query/rewritten_chat` - 重写问答接口
+    - [x] 统一响应格式 (ResultInfo)
+    - [x] 异常处理
+  - [ ] FastAPI 主应用配置 (`app.py`) - 待编写
+  - [ ] 健康检查接口 (`/health`) - 待编写
 
 - [x] **配置** (`config.py`)
   - [x] API Key 配置
@@ -294,6 +300,15 @@ for doc in results:
   - [x] API 结构说明 (`api/README.md`)
 
 ### 待完成
+
+- [ ] **FastAPI 主应用** (`api/app.py`)
+  - [ ] 创建 FastAPI 应用实例
+  - [ ] 配置 CORS 中间件
+  - [ ] 注册启动/关闭事件
+  - [ ] 注册路由
+  - [ ] 健康检查端点 (`/health`)
+  - [ ] 根路径 (`/`)
+  - [ ] 启动入口 (uvicorn)
 
 - [ ] **主程序** (`main.py`)
   - [ ] 交互式问答界面

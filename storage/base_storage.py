@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Any, Dict
-from langchain_text_splitters.base import TextSplitter
+from typing import List, Optional, Any, Dict, Tuple
+from langchain_core.documents.base import Document
 from parser import PDFLoader, HtmlLoader, MarkdownLoader
 
 
@@ -122,3 +122,57 @@ class VectorStorage(ABC):
         
         # 执行分块操作
         return methods[method](loader, source, **kv)
+    
+    @abstractmethod
+    def add_chunks(self, file_type: str, method: str, source: str, **kv) -> Tuple[Any, List[str]]:
+        """添加分块到向量库
+        
+        Args:
+            file_type: 文件类型 (pdf, html, markdown等)
+            method: 解析方法 (default, token, semantic等)
+            source: 文件路径或内容
+            
+        Returns:
+            Tuple[Any, List[str]]: (向量库实例, 生成的ID列表)
+        """
+        pass
+    
+    @abstractmethod
+    def delete_chunks(self, ids: List[str]) -> bool:
+        """删除指定ID的向量
+        
+        Args:
+            ids: 要删除的向量ID列表
+            
+        Returns:
+            bool: 删除是否成功
+        """
+        pass
+    
+    @abstractmethod
+    def update_chunks(self, ids: List[str], new_texts: List[str], new_metadatas: Optional[List[Dict[str, Any]]] = None) -> bool:
+        """更新指定ID的向量
+        
+        Args:
+            ids: 要更新的向量ID列表
+            new_texts: 新的文本内容列表
+            new_metadatas: 新的元数据列表（可选）
+            
+        Returns:
+            bool: 更新是否成功
+        """
+        pass
+    
+    @abstractmethod
+    def search(self, query: str, k: int = 3, **kwargs) -> List[Tuple[Document, float]]:
+        """搜索相似内容
+        
+        Args:
+            query: 查询文本
+            k: 返回结果数量
+            **kwargs: 其他参数
+            
+        Returns:
+            List[Tuple[Document, float]]: 文档和相似度分数的列表
+        """
+        pass

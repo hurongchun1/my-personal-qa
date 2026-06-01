@@ -37,6 +37,7 @@ ENV/
 .env
 .env.local
 .env.*.local
+interview_summary.md
 
 # OS
 .DS_Store

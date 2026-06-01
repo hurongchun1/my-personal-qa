@@ -2,105 +2,59 @@
 问答路由模块
 处理问答相关的API端点
 """
-
-from fastapi import APIRouter, HTTPException, Depends
-from ..models import QueryRequest, QueryResponse, ClassificationResponse
-from ..dependencies import get_rag_engine
+from fastapi import Depends, HTTPException
+from fastapi.routing import APIRouter
+from common.result_info import ResultInfo
 from rag_engine import RAGEngine
 
-router = APIRouter(prefix="/api", tags=["问答"])
+from ..dependencies import get_rag_engine
+from ..models import RewrittenChatRequest, SimpleChatRequest
 
 
-@router.post("/ask", response_model=QueryResponse)
-async def simple_ask(
-    request: QueryRequest,
-    rag_engine: RAGEngine = Depends(get_rag_engine)
+# 创建路由
+router = APIRouter(prefix="/query",tags=["问答"])
+
+
+@router.post("/simple_chat")
+async def simple_chat(
+    request: SimpleChatRequest,
+    rag_engine = Depends(get_rag_engine)
 ):
     """
-    简单问答接口
-    
-    直接使用原始问题进行检索和问答，不进行问题重写。
+    简单聊天接口
+
+    直接使用原始问题进行检索和回答，不进行问题改写
     """
     try:
-        answer = rag_engine.simple_ask(
-            query=request.query,
-            k=request.k
-        )
-        
-        if not answer:
+        answer = rag_engine.simple_ask(request.query,request.k)
+
+        if not answer :
+            
             raise HTTPException(status_code=404, detail="未找到相关答案")
         
-        return QueryResponse(
-            answer=answer,
-            query=request.query
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"问答失败: {str(e)}")
+        return ResultInfo.success(answer).to_dict()
 
+    except Exception :
+        raise HTTPException(status_code=500,detail="服务器内部错误")
 
-@router.post("/rewrite-ask", response_model=QueryResponse)
-async def rewritten_query_ask(
-    request: QueryRequest,
-    rag_engine: RAGEngine = Depends(get_rag_engine)
+@router.post("/rewritten_chat")
+async def rewritten_chat(
+    request: RewrittenChatRequest,
+    rag_engine = Depends(get_rag_engine)
 ):
-    """
-    重写问答接口
-    
-    先对问题进行分类和重写，然后使用重写后的问题进行检索和问答。
-    支持5种问题类型：上下文依赖型、对比型、模糊指代型、多意图型、反问型。
-    """
-    try:
-        # 获取重写前的原始问题
-        original_query = request.query
-        
-        # 调用重写问答
-        answer = rag_engine.rewritten_query_ask(
-            query=request.query,
-            conversation_history=request.conversation_history or "",
-            context_info=request.context_info or "",
-            k=request.k
-        )
-        
-        if not answer:
-            raise HTTPException(status_code=404, detail="未找到相关答案")
-        
-        # 注意：这里无法直接获取重写后的问题，因为 rewritten_query_ask 内部处理了
-        # 如果需要返回重写后的问题，需要修改 rag_engine 的接口
-        return QueryResponse(
-            answer=answer,
-            query=original_query,
-            rewritten_query=None  # 暂时为 None，需要修改 rag_engine 才能获取
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"重写问答失败: {str(e)}")
+    '''
+    重写问题接口
 
-
-@router.post("/classify", response_model=ClassificationResponse)
-async def classify_query(
-    request: QueryRequest,
-    rag_engine: RAGEngine = Depends(get_rag_engine)
-):
-    """
-    问题分类接口
-    
-    对问题进行分类，返回问题类型和重写后的问题。
-    不进行实际的检索和问答。
-    """
+    先进行问题重写，再继续检索和回答
+    '''
     try:
-        # 调用问题分类
-        result = rag_engine._query_rewriter.auto_rewrite_query(
-            query=request.query,
-            conversation_history=request.conversation_history or "",
-            context_info=request.context_info or ""
-        )
+        answer = rag_engine.rewritten_query_ask(request.query,request.conversation_history,request.context_info,request.k)
+
+        if not answer :
+            raise HTTPException(status_code=404,detail="未找到相关答案")
         
-        return ClassificationResponse(
-            original_query=request.query,
-            classification=result
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"问题分类失败: {str(e)}")
+        return ResultInfo.success(answer).to_dict()
+    
+    except Exception :
+        raise HTTPException(status_code=500,detail="服务器内部错误")
+
