@@ -3,12 +3,24 @@ RAG API 主应用文件
 FastAPI 应用入口
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
 
 from .dependencies import startup_event, shutdown_event
 from .routers import query
+
+
+# 生命周期管理
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动时执行
+    await startup_event()
+    yield
+    # 关闭时执行
+    await shutdown_event()
+
 
 # 创建 FastAPI 应用
 app = FastAPI(
@@ -16,7 +28,8 @@ app = FastAPI(
     description="基于检索增强生成的智能问答系统",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # 添加 CORS 中间件
@@ -27,10 +40,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 注册启动和关闭事件
-app.add_event_handler("startup", startup_event)
-app.add_event_handler("shutdown", shutdown_event)
 
 # 注册路由
 app.include_router(query.router)
@@ -55,14 +64,3 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
-
-
-# 启动入口
-if __name__ == "__main__":
-    uvicorn.run(
-        "api.app:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
