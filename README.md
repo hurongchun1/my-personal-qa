@@ -15,124 +15,56 @@
   - FAISS（本地向量数据库）
   - Elasticsearch（分布式搜索引擎）
 - **智能问答**：基于阿里云 DashScope 的大语言模型
+- **文档管理**：支持文档上传、解析、存储
 - **解耦架构**：策略模式 + 工厂模式，易于扩展
 
 ## 项目结构
 
 ```
 my-personal-qa/
-├── config.py              # 配置文件（API Key、模型配置）
-├── main.py                # 主程序入口（FastAPI 启动）
-├── rag_engine.py          # RAG 引擎
-├── query_rewriter.py      # 问题重写器
-├── requirements.txt       # 依赖包
-├── test_api.py            # API 测试脚本
-├── api/                   # FastAPI API 模块
-│   ├── __init__.py
-│   ├── app.py             # FastAPI 主应用
-│   ├── models.py          # 数据模型定义
-│   ├── dependencies.py    # 依赖项管理
-│   └── routers/           # 路由模块
-│       ├── __init__.py
-│       └── query.py       # 问答路由
-├── doc/                   # 文档存放目录
-│   └── *.pdf
-├── faiss/                 # FAISS 向量索引
-│   ├── index.faiss
-│   └── index.pkl
-├── parser/                # 文档解析器
-│   ├── __init__.py
-│   ├── base_loader.py     # 基类
-│   ├── pdf_loader.py      # PDF 解析器
-│   ├── html_loader.py     # HTML 解析器
-│   └── markdown_loader.py # Markdown 解析器
-└── storage/               # 存储层
-    ├── __init__.py         # 包导出
-    ├── base_storage.py     # 向量库抽象基类
-    ├── faiss_storage.py    # FAISS 实现
-    ├── elasticsearch_storage.py  # Elasticsearch 实现
-    └── storage_factory.py  # 向量库工厂类
-```
-
-## 核心设计
-
-### 1. 解析器架构
-
-采用策略模式，每种文件类型对应一个解析器类：
-
-```
-BaseLoader (基类)
-├── PDFLoader
-├── HtmlLoader
-└── MarkdownLoader
-```
-
-### 2. 向量库架构
-
-采用**抽象工厂模式**，支持多种向量库：
-
-```
-VectorStorage (抽象基类)
-├── FaissStorage (FAISS 实现)
-└── ElasticsearchStorage (Elasticsearch 实现)
-
-StorageFactory (工厂类)
-```
-
-### 3. 解耦的调度机制
-
-使用双重字典映射，避免 if-else：
-
-```python
-# 文件类型 -> 解析器类
-LOADER_MAP = {
-    "pdf": PDFLoader,
-    "markdown": MarkdownLoader,
-    "md": MarkdownLoader,      # 别名
-    "html": HtmlLoader,
-    "htm": HtmlLoader,         # 别名
-}
-
-# 文件类型 -> 分块方法 -> 具体实现
-METHOD_MAP = {
-    "pdf": {
-        "default": lambda loader, source, **kw: loader.parse(...),
-        "token": lambda loader, source, **kw: loader.token_text_parser(...),
-        "semantic": lambda loader, source, **kw: loader.semantic_text_parser(...),
-    },
-    # ... 其他类型
-}
-```
-
-### 4. 懒加载 + 缓存
-
-解析器只在首次使用时创建，并缓存后续复用：
-
-```python
-def get_loader(self, file_type):
-    if file_type in self._loaders:
-        return self._loaders[file_type]  # 缓存命中
-    loader = LOADER_MAP[file_type]()
-    self._loaders[file_type] = loader    # 缓存
-    return loader
-```
-
-### 5. 工厂模式
-
-通过工厂类创建不同的向量库实例：
-
-```python
-from storage import StorageFactory
-
-# 创建 FAISS 向量库
-faiss_storage = StorageFactory.create_storage("faiss")
-
-# 创建 Elasticsearch 向量库
-es_storage = StorageFactory.create_storage("elasticsearch")
-
-# 使用方式完全相同
-faiss_storage.add_chunks("pdf", "default", "test.pdf")
-es_storage.add_chunks("pdf", "default", "test.pdf")
+├── frontend/              # 前端项目（待开发）
+├── backend/               # 后端 API 项目
+│   ├── api/               # FastAPI API 模块
+│   │   ├── __init__.py
+│   │   ├── app.py         # FastAPI 主应用
+│   │   ├── models.py      # 数据模型定义
+│   │   ├── dependencies.py # 依赖项管理（RAGEngine 单例、数据库连接）
+│   │   └── routers/       # 路由模块
+│   │       ├── __init__.py
+│   │       ├── query.py       # 问答路由（简单问答、重写问答）
+│   │       └── documents.py   # 文档管理路由（上传、类型查询）
+│   ├── common/            # 公共模块
+│   │   ├── __init__.py
+│   │   ├── constant.py    # 常量定义（Storage、ResultCode、ResultMsg）
+│   │   ├── result_info.py # 统一响应格式
+│   │   └── exceptions.py  # 自定义异常类
+│   ├── database/          # 数据库模块
+│   │   ├── __init__.py
+│   │   └── connection.py  # SQLite 数据库连接管理
+│   ├── storage/           # 存储层
+│   │   ├── __init__.py
+│   │   ├── base_storage.py       # 向量库抽象基类
+│   │   ├── faiss_storage.py      # FAISS 向量存储
+│   │   ├── elasticsearch_storage.py # Elasticsearch 向量存储
+│   │   └── storage_factory.py    # 向量库工厂类
+│   ├── parser/            # 文档解析器
+│   │   ├── __init__.py
+│   │   ├── base_loader.py      # 解析器基类
+│   │   ├── pdf_loader.py       # PDF 解析
+│   │   ├── html_loader.py      # HTML 解析
+│   │   └── markdown_loader.py  # Markdown 解析
+│   ├── sql/
+│   │   └── ddl.sql        # 数据库建表语句
+│   ├── doc/               # 文档存放目录
+│   ├── faiss/             # FAISS 向量索引
+│   ├── tests/             # 测试模块
+│   ├── config.py          # 配置文件（API Key、模型配置、数据库路径）
+│   ├── main.py            # 主程序入口
+│   ├── rag_engine.py      # RAG 引擎
+│   ├── query_rewriter.py  # 问题重写器
+│   └── requirements.txt   # 依赖包
+├── README.md
+└── venv/                  # Python 虚拟环境
 ```
 
 ## 快速开始
@@ -140,6 +72,9 @@ es_storage.add_chunks("pdf", "default", "test.pdf")
 ### 1. 环境准备
 
 ```bash
+# 进入项目根目录
+cd my-personal-qa
+
 # 创建虚拟环境
 python -m venv venv
 
@@ -150,7 +85,7 @@ venv\Scripts\activate
 source venv/bin/activate
 
 # 安装依赖
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
 ### 2. 配置 API Key
@@ -171,41 +106,103 @@ export DASHSCOPE_API_KEY=your_api_key_here
 DASHSCOPE_API_KEY=your_api_key_here
 ```
 
-### 3. 配置 Elasticsearch（可选）
-
-如果使用 Elasticsearch，设置以下环境变量：
+### 3. 启动服务
 
 ```bash
-# Windows
-set ES_HOST=http://localhost:9200
-set ES_INDEX_NAME=my-personal-qa
+# 方式一：在 backend 目录启动
+cd backend
+python main.py
 
-# Linux/Mac
-export ES_HOST=http://localhost:9200
-export ES_INDEX_NAME=my-personal-qa
+# 方式二：在项目根目录启动
+python -m backend.main
 ```
 
-### 4. 使用示例
+启动后访问：
+- `http://localhost:8000/` — 欢迎页面
+- `http://localhost:8000/health` — 健康检查
+- `http://localhost:8000/docs` — Swagger API 文档
+
+## API 接口
+
+### 问答接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/query/simple_chat` | 简单问答（直接检索回答） |
+| POST | `/api/query/rewritten_chat` | 重写问答（先改写问题再检索） |
+
+### 文档管理接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/documents/supported-types` | 获取支持的文件类型 |
+| POST | `/api/documents/upload` | 上传文档到知识库 |
+
+### 系统接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/` | 欢迎页面 |
+| GET | `/health` | 健康检查 |
+
+## 核心设计
+
+### 1. 包导入规范
+
+项目统一使用**相对导入**，`main.py` 负责设置 `sys.path`：
 
 ```python
-from storage import StorageFactory
+# main.py - 唯一的路径入口
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+```
 
-# 创建向量库实例（自动选择 FAISS 或 Elasticsearch）
-storage = StorageFactory.create_storage("faiss")  # 或 "elasticsearch"
+相对导入层级规则（从当前文件往上数包层级）：
 
-# 添加文档到向量库
-storage.add_chunks(
-    file_type="pdf",
-    method="default",
-    source="doc/example.pdf",
-    chunk_size=512,
-    chunk_overlap=50
-)
+```
+backend/storage/xxx.py    → 用 .. 回到 backend
+backend/api/xxx.py        → 用 .. 回到 backend
+backend/api/routers/xxx.py → 用 ... 回到 backend
+```
 
-# 搜索相似内容
-results = storage.search("查询内容", k=3)
-for doc in results:
-    print(doc.page_content)
+### 2. 解析器架构
+
+采用策略模式，每种文件类型对应一个解析器类：
+
+```
+BaseLoader (基类)
+├── PDFLoader
+├── HtmlLoader
+└── MarkdownLoader
+```
+
+### 3. 向量库架构
+
+采用**抽象工厂模式**，支持多种向量库：
+
+```
+VectorStorage (抽象基类)
+├── FaissStorage (FAISS 实现)
+└── ElasticsearchStorage (Elasticsearch 实现)
+
+StorageFactory (工厂类)
+```
+
+### 4. 数据库层
+
+使用 SQLite 存储文档元数据：
+
+```sql
+-- 文档表
+CREATE TABLE documents (
+    id TEXT PRIMARY KEY,
+    filename TEXT NOT NULL,
+    file_type TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_size INTEGER,
+    chunk_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ## 支持的分块方法
@@ -224,32 +221,40 @@ for doc in results:
 
 ## 技术栈
 
+- **FastAPI**：Web 框架
 - **LangChain**：文本分割、嵌入模型
 - **FAISS**：本地向量数据库
 - **Elasticsearch**：分布式搜索引擎
 - **DashScope**：阿里云 AI 服务（嵌入 + LLM）
+- **SQLite**：文档元数据存储
 - **PyPDF2**：PDF 解析
 - **BeautifulSoup**：HTML 解析
-- **Rich**：终端美化输出
+- **python-multipart**：文件上传支持
 
 ## 开发进度
 
-### 已完成
+### 已完成（2026-06-02）
 
 - [x] **文档解析器** (`parser/`)
   - [x] `BaseLoader` 基类定义
   - [x] `PDFLoader` - PDF 文档解析
   - [x] `HtmlLoader` - HTML 网页解析
   - [x] `MarkdownLoader` - Markdown 文档解析
-  - [x] `__init__.py` - 统一导入管理
 
 - [x] **存储层** (`storage/`)
   - [x] `VectorStorage` - 向量库抽象基类
-  - [x] `FaissStorage` - FAISS 向量存储管理（add/delete/update/search）
+  - [x] `FaissStorage` - FAISS 向量存储管理
   - [x] `ElasticsearchStorage` - Elasticsearch 向量存储管理
   - [x] `StorageFactory` - 向量库工厂类
-  - [x] 懒加载 + 缓存机制
-  - [x] 解耦的分块方法调度（字典映射）
+
+- [x] **公共模块** (`common/`)
+  - [x] `constant.py` - 常量集中管理
+  - [x] `result_info.py` - 统一响应格式
+  - [x] `exceptions.py` - 自定义异常类
+
+- [x] **数据库模块** (`database/`)
+  - [x] `connection.py` - SQLite 连接管理
+  - [x] `ddl.sql` - 数据库建表语句
 
 - [x] **RAG 引擎** (`rag_engine.py`)
   - [x] 向量检索逻辑
@@ -264,109 +269,68 @@ for doc in results:
   - [x] 模糊指代型重写
   - [x] 多意图型重写
   - [x] 反问型重写
-  - [x] 自动判断调度器
 
-- [x] **FastAPI API** (`api/`) - 手动编写
+- [x] **FastAPI API** (`api/`)
   - [x] 数据模型定义 (`models.py`)
-    - [x] `SimpleChatRequest` - 简单问答请求模型
-    - [x] `RewrittenChatRequest` - 重写问答请求模型
-    - [x] Pydantic Field 验证
-  - [x] 依赖项管理 (`dependencies.py`)
-    - [x] 单例模式管理 RAGEngine 实例
-    - [x] 懒加载模式
-    - [x] 启动/关闭事件
+  - [x] 依赖项管理 (`dependencies.py`) - 单例模式
   - [x] 问答路由 (`routers/query.py`)
-    - [x] `/query/simple_chat` - 简单问答接口
-    - [x] `/query/rewritten_chat` - 重写问答接口
-    - [x] 统一响应格式 (ResultInfo)
-    - [x] 异常处理
-  - [ ] FastAPI 主应用配置 (`app.py`) - 待编写
-  - [ ] 健康检查接口 (`/health`) - 待编写
+    - [x] `/query/simple_chat` - 简单问答
+    - [x] `/query/rewritten_chat` - 重写问答
+  - [x] 文档管理路由 (`routers/documents.py`)
+    - [x] `/documents/supported-types` - 支持类型查询
+    - [x] `/documents/upload` - 文档上传
+  - [x] FastAPI 主应用 (`app.py`)
+  - [x] 健康检查接口 (`/health`)
 
-- [x] **配置** (`config.py`)
-  - [x] API Key 配置
-  - [x] 模型配置（Embedding + LLM）
-  - [x] 路径配置
-  - [x] Elasticsearch 配置
-  - [x] 存储类型配置
-
-- [x] **测试** (`tests/`)
-  - [x] `test_faiss_storage.py` - FAISS 存储集成测试
-  - [x] `test_rag_engine.py` - RAG 引擎集成测试
-  - [x] `test_api.py` - API 接口测试
-
-- [x] **文档**
-  - [x] README.md
-  - [x] API 结构说明 (`api/README.md`)
+- [x] **包结构修复**
+  - [x] 创建所有 `__init__.py` 文件
+  - [x] 统一相对导入规范
+  - [x] `main.py` sys.path 自动修复
+  - [x] `requirements.txt` 补充 python-multipart
 
 ### 待完成
 
-- [ ] **FastAPI 主应用** (`api/app.py`)
-  - [ ] 创建 FastAPI 应用实例
-  - [ ] 配置 CORS 中间件
-  - [ ] 注册启动/关闭事件
-  - [ ] 注册路由
-  - [ ] 健康检查端点 (`/health`)
-  - [ ] 根路径 (`/`)
-  - [ ] 启动入口 (uvicorn)
+#### 文档管理完善
 
-- [ ] **主程序** (`main.py`)
-  - [ ] 交互式问答界面
-  - [ ] 命令行参数支持
-  - [ ] 文档导入流程
-  - [ ] 问答流程整合
+- [ ] 文档列表查询接口（GET `/api/documents`）
+- [ ] 文档详情查询接口（GET `/api/documents/{id}`）
+- [ ] 文档删除接口（DELETE `/api/documents/{id}`）
+- [ ] 上传文档时自动解析并建立向量索引
+- [ ] 文档重复上传检测
 
-- [ ] **知识库管理**
-  - [ ] 文档增删改查
-  - [ ] 向量索引更新
-  - [ ] 文档元数据管理
-  - [ ] 分块内容与ID关联存储（数据库）
+#### 问答功能完善
 
-- [ ] **高级功能**
-  - [ ] 多轮对话支持
-  - [ ] 对话历史管理
-  - [ ] 检索结果排序优化
-  - [ ] 回答质量评估
-  - [ ] 用户认证和权限管理
-  - [ ] 接口限流和缓存
+- [ ] 对话历史记录存储
+- [ ] 多轮对话上下文管理
+- [ ] 回答来源追溯（引用原文片段）
+- [ ] 流式响应（SSE）
+
+#### 前端项目 (`frontend/`)
+
+- [ ] 用户界面设计
+- [ ] 聊天对话界面
+- [ ] 文档管理界面
+- [ ] 调用后端 API
+
+#### 高级功能
+
+- [ ] 用户认证和权限管理
+- [ ] 接口限流和缓存
+- [ ] 回答质量评估
+- [ ] 系统监控和日志
 
 ## 扩展指南
 
 ### 添加新的文件类型
 
 1. 在 `parser/` 下创建新的解析器类，继承 `BaseLoader`
-2. 在 `storage/base_storage.py` 的 `LOADER_MAP` 中添加映射
-3. 在 `METHOD_MAP` 中添加对应的分块方法
-
-```python
-# 示例：添加 Word 文档支持
-from parser.word_loader import WordLoader
-
-LOADER_MAP["docx"] = WordLoader
-
-METHOD_MAP["docx"] = {
-    "default": lambda loader, source, **kw: loader.parse(...),
-    # ... 其他方法
-}
-```
+2. 在 `common/constant.py` 的 `Constant.Storage` 中添加映射
 
 ### 添加新的向量库
 
 1. 在 `storage/` 下创建新的存储类，继承 `VectorStorage`
 2. 实现 `add_chunks()` 和 `search()` 方法
 3. 在 `storage/storage_factory.py` 的 `SUPPORTED_TYPES` 中添加映射
-
-```python
-# 示例：添加 Milvus 支持
-from storage.milvus_storage import MilvusStorage
-
-SUPPORTED_TYPES = {
-    "faiss": FaissStorage,
-    "elasticsearch": ElasticsearchStorage,
-    "es": ElasticsearchStorage,
-    "milvus": MilvusStorage,  # 新增
-}
-```
 
 ## License
 
