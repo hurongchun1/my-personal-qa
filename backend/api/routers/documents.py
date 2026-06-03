@@ -4,18 +4,20 @@
 '''
 from sqlite3 import Connection
 import uuid
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 import os
 
 from ..dependencies import get_db
+from ...common.logger import logger
 from ...common.result_info import ResultInfo
+from ...common.exceptions import BusinessException
 from ...config import UPLOAD_DIR
 from ...storage.base_storage import LOADER_MAP
 
 # 注册路由
 router = APIRouter(prefix="/documents",tags=["文档解析"])
 
-@router.get("supported-types")
+@router.get("/supported-types")
 async def supported_types():
     '''获取项目中支持的文件类型'''
     methods = [key for key in LOADER_MAP.keys()]
@@ -53,7 +55,7 @@ async def list_documents(db: Connection = Depends(get_db)):
         
         return ResultInfo.success(doc_list)
     except Exception as e:
-        raise HTTPException(500, f"获取文档列表失败: {str(e)}")
+        raise BusinessException.database_error(f"获取文档列表失败: {str(e)}")
 
 @router.post("/upload")
 async def upload_document(
@@ -67,9 +69,11 @@ async def upload_document(
         db：数据库连接
 
     '''
+    # raise BusinessException.not_found("测试异常")
     # 获取文件的扩展名，生成文件唯一名
+    logger.info("开始上传文件，filename=%s", file.filename)
     if  file.filename is None:
-        raise HTTPException(400,"文件名不能为空")
+        raise BusinessException.validation_error("文件名不能为空")
 
     file_ext = os.path.splitext(file.filename)[1]
     unique_file_name = uuid.uuid4().hex + file_ext
@@ -87,10 +91,10 @@ async def upload_document(
         with open(file_path, "wb") as f:
             f.write(file_content)
 
-        print(f"文件保存成功: {file_path}")
+        logger.info("文件保存成功，file_path=%s, size=%s", file_path, len(file_content))
     except Exception as e:
-        print(f"文件保存失败: {e}")
-        raise HTTPException(500, f"文件保存失败: {str(e)}")
+        logger.exception("文件保存失败，filename=%s, file_path=%s", file.filename, file_path)
+        raise BusinessException.file_save_failed(f"文件保存失败: {str(e)}")
 
     # 将文件信息保存到数据库中
     try:
@@ -107,13 +111,13 @@ async def upload_document(
 
         document_id = cursor.lastrowid
         db.commit()
-        print(f"元数据保存成功，文档ID: {document_id}")
+        logger.info("文档元数据保存成功，document_id=%s, filename=%s", document_id, file.filename)
         return ResultInfo.success(document_id)
 
     except Exception as e:
-        print(f"元数据保存失败: {e}")
+        logger.exception("文档元数据保存失败，filename=%s, file_path=%s", file.filename, file_path)
         db.rollback()
         # 保存失败时删除已上传的文件
         if os.path.exists(file_path):
             os.remove(file_path)
-        raise HTTPException(500, f"文件上传失败: {str(e)}")
+        raise BusinessException.database_error(f"文件上传失败: {str(e)}")

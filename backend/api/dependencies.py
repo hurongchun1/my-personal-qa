@@ -6,9 +6,13 @@ API 依赖项
 from typing import  AsyncGenerator
 from sqlite3 import Connection
 
+from fastapi import HTTPException
+from fastapi.exceptions import RequestValidationError
 
 from ..rag_engine import RAGEngine
 from ..database.connection import get_connection, close_connection, init_db
+from ..common.logger import logger
+from ..common.exceptions import BusinessException
 
 
 # 全局 rag引擎实例
@@ -47,7 +51,11 @@ async def get_db() -> AsyncGenerator[Connection, None]:
     try:
         yield conn
         conn.commit()
+    except (BusinessException, HTTPException, RequestValidationError):
+        conn.rollback()
+        raise
     except Exception :
+        logger.exception("请求处理异常，数据库事务已回滚")
         conn.rollback()
         raise
     finally:

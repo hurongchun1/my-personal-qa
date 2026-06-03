@@ -1,22 +1,10 @@
 """
 异常类统一导出
-使用方式：from backend.common.exceptions import RAGException, NotFoundException
+使用方式：from backend.common.exceptions import BusinessException
 """
 
-from .rag_exceptions import (
-    RAGException,
-    SearchException,
-    LLMException,
-    DocumentParseException,
-    ValidationException,
-    NotFoundException
-)
+from .business_exception import BusinessException
 
 __all__ = [
-    "RAGException",
-    "SearchException",
-    "LLMException",
-    "DocumentParseException",
-    "ValidationException",
-    "NotFoundException"
+    "BusinessException"
 ]
