@@ -1,136 +1,98 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
-import type { Message, Citation } from '../types'
+import type { Citation, Message } from '../types'
 
 interface ChatStreamProps {
   messages: Message[]
   isStreaming: boolean
+  onCitationClick?: (citation: Citation) => void
 }
 
-// 引用标签组件
-const CitationTag: React.FC<{ citation: Citation; index: number }> = ({ citation, index }) => {
-  const [showTooltip, setShowTooltip] = useState(false)
-  const tooltipRef = useRef<HTMLDivElement>(null)
-  
+export function ChatStream({ messages, isStreaming, onCitationClick }: ChatStreamProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    container.scrollTo({
+      top: container.scrollHeight - container.clientHeight,
+      behavior: 'smooth',
+    })
+  }, [messages, isStreaming])
+
   return (
-    <span className="relative inline-block">
-      <span
-        className="citation-tag cursor-pointer"
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-      >
-        [{index + 1}]
-      </span>
-      
-      {/* 引用摘要气泡 */}
-      <AnimatePresence>
-        {showTooltip && (
-          <motion.div
-            ref={tooltipRef}
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
-            className="absolute z-50 bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 rounded-lg bg-slate-800 border border-slate-700 shadow-xl"
-          >
-            <div className="text-xs text-slate-400 mb-1">来源: {citation.docName}</div>
-            <div className="text-sm text-slate-200 leading-relaxed">
-              {citation.snippet}
+    <div ref={containerRef} className="h-full overflow-y-auto px-6 py-12">
+      <div className="mx-auto flex min-h-full max-w-4xl flex-col gap-12">
+        {messages.length === 0 && <EmptyState />}
+
+        {messages.map((message) => (
+          <MessageBubble key={message.id} message={message} onCitationClick={onCitationClick} />
+        ))}
+
+        {isStreaming && messages.length > 0 && !messages[messages.length - 1].isStreaming && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
+            <div className="max-w-[78%] rounded-3xl border-t border-l border-white/10 border-r border-b border-black/20 bg-slate-950/55 px-6 py-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
+              <StreamingIndicator />
             </div>
-            {/* 小箭头 */}
-            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-2 h-2 bg-slate-800 border-r border-b border-slate-700 rotate-45"></div>
           </motion.div>
         )}
-      </AnimatePresence>
-    </span>
+      </div>
+    </div>
   )
 }
 
-// 流式加载指示器
-const StreamingIndicator: React.FC = () => (
-  <div className="flex items-center space-x-1.5 p-3">
-    <div className="flex space-x-1">
-      {[0, 1, 2].map((i) => (
-        <motion.div
-          key={i}
-          className="w-2 h-2 rounded-full bg-indigo-500"
-          animate={{
-            y: [0, -8, 0],
-            opacity: [0.5, 1, 0.5],
-          }}
-          transition={{
-            duration: 1.2,
-            repeat: Infinity,
-            delay: i * 0.2,
-            ease: 'easeInOut',
-          }}
-        />
-      ))}
-    </div>
-    <span className="text-sm text-slate-400">正在思考...</span>
-  </div>
-)
-
-// 消息气泡组件
-const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
+function MessageBubble({
+  message,
+  onCitationClick,
+}: {
+  message: Message
+  onCitationClick?: (citation: Citation) => void
+}) {
   const isUser = message.role === 'user'
-  
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className={`flex ${isUser ? 'justify-end' : 'justify-start'} group`}
+    <motion.article
+      initial={{ opacity: 0, y: 24, scale: 0.96, filter: 'blur(8px)' }}
+      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+      transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
     >
-      <div className={`max-w-[80%] ${isUser ? 'order-2' : 'order-1'}`}>
-        {/* 发送者信息 */}
-        <div className={`flex items-center space-x-2 mb-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
-          {!isUser && (
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <span className="text-white text-xs font-bold">AI</span>
-            </div>
-          )}
-          <span className="text-xs text-slate-400 font-medium">
+      <div className={`max-w-[78%] ${isUser ? 'text-right' : 'text-left'}`}>
+        <div className={`mb-3 flex items-center gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
+          {!isUser && <Avatar label="AI" />}
+          <span className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
             {isUser ? '你' : '数字员工'}
           </span>
-          <span className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
-            {message.timestamp.toLocaleTimeString('zh-CN', { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            })}
+          <span className="text-xs text-slate-600">
+            {message.timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
           </span>
-          {isUser && (
-            <div className="w-7 h-7 rounded-lg bg-slate-700 flex items-center justify-center shadow-lg shadow-slate-700/20">
-              <span className="text-slate-300 text-xs font-bold">U</span>
-            </div>
-          )}
+          {isUser && <Avatar label="U" muted />}
         </div>
-        
-        {/* 消息内容 */}
+
         <div
-          className={`rounded-2xl px-4 py-3 transition-all duration-200 hover:shadow-lg ${
+          className={`rounded-3xl border-t border-l border-white/10 border-r border-b border-black/20 px-6 py-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl ${
             isUser
-              ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30'
-              : 'bg-gradient-to-br from-slate-800/80 to-slate-800/60 text-slate-200 shadow-lg shadow-slate-900/20 hover:shadow-slate-900/30 backdrop-blur-sm'
+              ? 'bg-gradient-to-br from-indigo-500/80 via-violet-500/70 to-fuchsia-500/55 text-white'
+              : 'bg-slate-950/55 text-slate-200'
           }`}
         >
           {isUser ? (
-            <div className="whitespace-pre-wrap">{message.content}</div>
+            <div className="whitespace-pre-wrap leading-7">{message.content}</div>
           ) : (
             <div className="markdown-content">
               <ReactMarkdown>{message.content}</ReactMarkdown>
-              
-              {/* 引用标签 */}
               {message.citations && message.citations.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-slate-700/50">
-                  <div className="text-xs text-slate-400 mb-2">参考来源:</div>
-                  <div className="flex flex-wrap gap-2">
+                <div className="mt-5 border-t border-white/10 pt-4">
+                  <div className="mb-3 text-xs text-slate-400">参考来源</div>
+                  <div className="flex flex-wrap gap-3">
                     {message.citations.map((citation, index) => (
                       <CitationTag
                         key={citation.id}
                         citation={citation}
                         index={index}
+                        onClick={onCitationClick}
                       />
                     ))}
                   </div>
@@ -138,46 +100,104 @@ const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
               )}
             </div>
           )}
-          
-          {/* 流式加载指示器 */}
+
           {message.isStreaming && (
-            <div className="mt-2">
+            <div className="mt-4">
               <StreamingIndicator />
             </div>
           )}
         </div>
       </div>
-    </motion.div>
+    </motion.article>
   )
 }
 
-export const ChatStream: React.FC<ChatStreamProps> = ({ messages, isStreaming }) => {
+function CitationTag({
+  citation,
+  index,
+  onClick,
+}: {
+  citation: Citation
+  index: number
+  onClick?: (citation: Citation) => void
+}) {
+  const [showTooltip, setShowTooltip] = useState(false)
+
   return (
-    <div className="space-y-6">
-      {messages.map((message) => (
-        <MessageBubble key={message.id} message={message} />
-      ))}
-      
-      {/* 全局流式指示器 */}
-      {isStreaming && messages.length > 0 && !messages[messages.length - 1].isStreaming && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex justify-start"
-        >
-          <div className="max-w-[80%]">
-            <div className="flex items-center space-x-2 mb-1">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <span className="text-white text-xs font-semibold">AI</span>
-              </div>
-              <span className="text-xs text-slate-400">数字员工</span>
+    <span className="relative inline-block">
+      <button
+        type="button"
+        className="citation-tag"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        onClick={() => onClick?.(citation)}
+      >
+        [{index + 1}]
+      </button>
+
+      <AnimatePresence>
+        {showTooltip && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.96 }}
+            className="absolute bottom-full left-1/2 z-50 mb-3 w-80 -translate-x-1/2 rounded-3xl border-t border-l border-white/10 border-r border-b border-black/20 bg-slate-950/90 p-4 text-left shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+          >
+            <div className="mb-2 text-xs text-slate-500">
+              来源: {citation.docName}
+              {citation.pageNumber ? ` / 第 ${citation.pageNumber} 页` : ''}
             </div>
-            <div className="bg-slate-800/60 rounded-2xl px-4 py-3">
-              <StreamingIndicator />
-            </div>
-          </div>
-        </motion.div>
-      )}
+            <div className="text-sm leading-6 text-slate-200">{citation.snippet}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </span>
+  )
+}
+
+function StreamingIndicator() {
+  return (
+    <div className="flex items-center gap-3 text-sm text-slate-400">
+      <div className="flex gap-1.5">
+        {[0, 1, 2].map((index) => (
+          <motion.span
+            key={index}
+            className="h-2 w-2 rounded-full bg-gradient-to-r from-indigo-300 to-fuchsia-300"
+            animate={{ y: [0, -8, 0], opacity: [0.35, 1, 0.35] }}
+            transition={{ duration: 1.2, repeat: Infinity, delay: index * 0.18, ease: 'easeInOut' }}
+          />
+        ))}
+      </div>
+      正在思考...
     </div>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-1 items-center justify-center py-24">
+      <div className="max-w-xl text-center">
+        <p className="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-4xl font-bold text-transparent">
+          数字员工助手
+        </p>
+        <p className="mt-5 text-base leading-8 text-slate-400">
+          把问题、文档和待办交给我。这里会保持安静、居中，只让对话成为焦点。
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function Avatar({ label, muted = false }: { label: string; muted?: boolean }) {
+  return (
+    <span
+      className={`grid h-8 w-8 place-items-center rounded-2xl text-xs font-bold shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${
+        muted
+          ? 'bg-white/10 text-slate-300'
+          : 'bg-gradient-to-br from-indigo-400 via-violet-500 to-fuchsia-500 text-white'
+      }`}
+    >
+      {label}
+    </span>
   )
 }

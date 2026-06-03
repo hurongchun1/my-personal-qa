@@ -60,7 +60,7 @@ export const ArtifactsContainer: React.FC<ArtifactsContainerProps> = ({
   return (
     <div className="flex flex-col h-full">
       {/* Tab头部 */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
+      <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div className="flex space-x-1">
           {tabs.map((tab) => (
             <button
@@ -91,7 +91,7 @@ export const ArtifactsContainer: React.FC<ArtifactsContainerProps> = ({
               {activeTab === tab.id && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute inset-0 bg-slate-800/60 rounded-lg -z-10"
+                  className="absolute inset-0 bg-slate-800/60 rounded-lg -z-10 border border-white/10"
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                 />
               )}

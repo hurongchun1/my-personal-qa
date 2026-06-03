@@ -8,7 +8,7 @@ import type {
   SystemStatus,
   UserPreferences,
   Citation,
-  StreamChunk
+  SearchResult
 } from '../types'
 import { api } from '../services/api'
 
@@ -108,8 +108,10 @@ interface UseDigitalEmployeeReturn {
   processDocument: (id: string) => Promise<void>
   toggleTask: (id: string) => void
   addTask: (title: string, description?: string, priority?: Task['priority']) => void
+  deleteTask: (id: string) => void
   clearMessages: () => void
   updatePreferences: (prefs: Partial<UserPreferences>) => void
+  searchDocuments: (query: string) => Promise<SearchResult[]>
 }
 
 export function useDigitalEmployee(): UseDigitalEmployeeReturn {
@@ -133,6 +135,7 @@ export function useDigitalEmployee(): UseDigitalEmployeeReturn {
     notifications: true,
     autoScroll: true,
     fontSize: 'medium',
+    sidebarCollapsed: false,
   })
   const [isStreaming, setIsStreaming] = useState(false)
   
@@ -180,7 +183,7 @@ export function useDigitalEmployee(): UseDigitalEmployeeReturn {
     try {
       // 尝试使用流式API
       let fullContent = ''
-      let citations: Citation[] = []
+      const citations: Citation[] = []
       
       // 添加助手消息（开始流式）
       const assistantMessage: Message = {
@@ -195,25 +198,7 @@ export function useDigitalEmployee(): UseDigitalEmployeeReturn {
       setStatus('speaking')
       
       try {
-        // 尝试流式API
-        for await (const chunk of api.query.streamChat(content)) {
-          if (!streamRef.current) break
-          
-          fullContent += chunk.content
-          if (chunk.citations) {
-            citations = chunk.citations
-          }
-          
-          setMessages(prev => prev.map(msg => 
-            msg.id === assistantMessage.id 
-              ? { ...msg, content: fullContent, citations }
-              : msg
-          ))
-        }
-      } catch (streamError) {
-        console.warn('Stream API failed, falling back to simple chat:', streamError)
-        
-        // 回退到简单问答
+        // 使用简单问答API（流式API尚未实现）
         const answer = await api.query.simpleChat(content)
         fullContent = answer
         
@@ -222,12 +207,15 @@ export function useDigitalEmployee(): UseDigitalEmployeeReturn {
             ? { ...msg, content: fullContent }
             : msg
         ))
+      } catch (chatError) {
+        console.warn('Chat API failed:', chatError)
+        throw chatError
       }
       
       // 完成流式
       setMessages(prev => prev.map(msg => 
         msg.id === assistantMessage.id 
-          ? { ...msg, isStreaming: false }
+          ? { ...msg, isStreaming: false, citations }
           : msg
       ))
       
@@ -388,6 +376,11 @@ export function useDigitalEmployee(): UseDigitalEmployeeReturn {
     setTasks(prev => [...prev, newTask])
   }, [])
   
+  // 删除任务
+  const deleteTask = useCallback((id: string): void => {
+    setTasks(prev => prev.filter(task => task.id !== id))
+  }, [])
+  
   // 清空消息
   const clearMessages = useCallback((): void => {
     setMessages([{
@@ -402,6 +395,25 @@ export function useDigitalEmployee(): UseDigitalEmployeeReturn {
   const updatePreferences = useCallback((prefs: Partial<UserPreferences>): void => {
     setUserPreferences(prev => ({ ...prev, ...prefs }))
   }, [])
+  
+  // 搜索文档
+  const searchDocuments = useCallback(async (query: string): Promise<SearchResult[]> => {
+    // 本地搜索文档
+    const results: SearchResult[] = documents
+      .filter(doc => 
+        doc.filename.toLowerCase().includes(query.toLowerCase()) ||
+        doc.fileType.toLowerCase().includes(query.toLowerCase())
+      )
+      .map(doc => ({
+        id: doc.id,
+        title: doc.filename,
+        snippet: `文件类型: ${doc.fileType.toUpperCase()}, 大小: ${(doc.fileSize / 1024).toFixed(1)} KB`,
+        score: 1.0,
+        documentId: doc.id,
+        documentName: doc.filename,
+      }))
+    return results
+  }, [documents])
   
   // 定期更新系统状态（模拟）
   useEffect(() => {
@@ -442,7 +454,9 @@ export function useDigitalEmployee(): UseDigitalEmployeeReturn {
     processDocument,
     toggleTask,
     addTask,
+    deleteTask,
     clearMessages,
     updatePreferences,
+    searchDocuments,
   }
 }

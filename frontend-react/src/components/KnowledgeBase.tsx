@@ -1,5 +1,6 @@
 import React, { useRef } from 'react'
 import { motion } from 'framer-motion'
+import { FileText } from 'lucide-react'
 import type { Document, DocumentStatus } from '../types'
 
 interface KnowledgeBaseProps {
@@ -7,6 +8,8 @@ interface KnowledgeBaseProps {
   onUpload?: (file: File) => void
   onDelete?: (id: string) => void
   onProcess?: (id: string) => void
+  searchQuery?: string
+  onSearch?: (query: string) => void
 }
 
 const statusConfig: Record<DocumentStatus, { label: string; color: string; bgColor: string }> = {
@@ -32,13 +35,13 @@ const statusConfig: Record<DocumentStatus, { label: string; color: string; bgCol
   },
 }
 
-const fileTypeIcons: Record<string, string> = {
-  pdf: '📄',
-  html: '🌐',
-  md: '📝',
-  txt: '📃',
-  doc: '📘',
-  docx: '📘',
+const fileTypeIcons: Record<string, { icon: string; color: string; bgColor: string }> = {
+  pdf: { icon: '📄', color: 'text-red-400', bgColor: 'bg-red-500/20' },
+  html: { icon: '🌐', color: 'text-blue-400', bgColor: 'bg-blue-500/20' },
+  md: { icon: '📝', color: 'text-emerald-400', bgColor: 'bg-emerald-500/20' },
+  txt: { icon: '📃', color: 'text-slate-400', bgColor: 'bg-slate-500/20' },
+  doc: { icon: '📘', color: 'text-blue-400', bgColor: 'bg-blue-500/20' },
+  docx: { icon: '📘', color: 'text-blue-400', bgColor: 'bg-blue-500/20' },
 }
 
 export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
@@ -46,8 +49,16 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
   onUpload,
   onDelete,
   onProcess,
+  searchQuery = '',
+  onSearch,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // 过滤文档
+  const filteredDocuments = documents.filter(doc => 
+    doc.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doc.fileType.toLowerCase().includes(searchQuery.toLowerCase())
+  )
   
   // 处理文件上传
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,10 +90,10 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
   return (
     <div className="h-full flex flex-col">
       {/* 上传区域 */}
-      <div className="p-4 border-b border-slate-700/50">
+      <div className="p-6 border-b border-white/5">
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-slate-700/50 rounded-xl p-6 text-center cursor-pointer hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/10 hover:scale-[1.02] active:scale-[0.98]"
+          className="border-2 border-dashed border-white/10 rounded-2xl p-8 text-center cursor-pointer hover:border-indigo-500/40 hover:bg-slate-800/40 transition-all duration-200 hover:shadow-[0_0_15px_rgba(99,102,241,0.15)]"
         >
           <input
             ref={fileInputRef}
@@ -91,7 +102,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
             accept=".pdf,.html,.md,.txt,.doc,.docx"
             className="hidden"
           />
-          <div className="text-3xl mb-2">📁</div>
+          <div className="text-4xl mb-3">📁</div>
           <div className="text-sm text-slate-300 mb-1">
             点击或拖拽文件到此处上传
           </div>
@@ -101,33 +112,60 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
         </div>
       </div>
       
+      {/* 搜索框 */}
+      {onSearch && (
+        <div className="p-6 border-b border-white/5">
+          <div className="relative">
+            <svg 
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearch(e.target.value)}
+              placeholder="搜索文档..."
+              className="w-full pl-9 pr-4 py-3 rounded-xl bg-slate-900/40 border border-white/5 backdrop-blur-md text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500/40 focus:shadow-[0_0_15px_rgba(99,102,241,0.15)] transition-all duration-200"
+            />
+          </div>
+        </div>
+      )}
+      
       {/* 文档列表 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {documents.length === 0 ? (
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {filteredDocuments.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-4xl mb-3">📚</div>
-            <div className="text-slate-400">暂无文档</div>
+            <div className="text-slate-400">
+              {searchQuery ? '未找到匹配的文档' : '暂无文档'}
+            </div>
             <div className="text-sm text-slate-500 mt-1">
-              上传文档开始构建知识库
+              {searchQuery ? '尝试不同的搜索词' : '上传文档开始构建知识库'}
             </div>
           </div>
         ) : (
-          documents.map((doc, index) => {
+          filteredDocuments.map((doc, index) => {
             const statusInfo = statusConfig[doc.status]
-            const fileIcon = fileTypeIcons[doc.fileType] || '📄'
+            const fileInfo = fileTypeIcons[doc.fileType] || fileTypeIcons.txt
             
             return (
               <motion.div
                 key={doc.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="bg-gradient-to-br from-slate-800/60 to-slate-800/40 rounded-xl p-4 hover:from-slate-800/80 hover:to-slate-800/60 transition-all duration-200 group hover:shadow-lg hover:shadow-slate-900/20 hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
+                className="p-5 rounded-2xl bg-gradient-to-br from-slate-800/50 to-transparent border border-white/5 backdrop-blur-md hover:border-indigo-500/40 transition-all duration-200 group hover:shadow-[0_0_15px_rgba(99,102,241,0.15)] hover:bg-slate-800/60"
               >
                 <div className="flex items-start justify-between">
                   {/* 文档信息 */}
                   <div className="flex items-start space-x-3">
-                    <div className="text-2xl mt-0.5">{fileIcon}</div>
+                    <div className={`w-10 h-10 rounded-xl ${fileInfo.bgColor} flex items-center justify-center`}>
+                      <FileText className="w-5 h-5 text-indigo-400" />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-medium text-slate-200 truncate">
                         {doc.filename}

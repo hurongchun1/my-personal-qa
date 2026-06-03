@@ -6,14 +6,65 @@
   --digital-secondary: rgba(30, 41, 59, 0.4);
   --digital-accent: #818cf8;
   --digital-accent-dark: #4f46e5;
-  --digital-surface: rgba(15, 23, 42, 0.8);
+  --digital-surface: rgba(15, 23, 42, 0.4);
   --digital-text: #e2e8f0;
   --digital-text-muted: #94a3b8;
-  --digital-border: rgba(148, 163, 184, 0.2);
+  --digital-border: rgba(255, 255, 255, 0.05);
   --digital-gradient-start: #0a0f1a;
   --digital-gradient-end: #0f172a;
-  --digital-grid-color: rgba(99, 102, 241, 0.05);
-  --digital-dot-color: rgba(129, 140, 248, 0.1);
+  --digital-grid-color: rgba(99, 102, 241, 0.03);
+  --digital-dot-color: rgba(129, 140, 248, 0.08);
+  --digital-glow-blue: rgba(59, 130, 246, 0.5);
+  --digital-glow-purple: rgba(139, 92, 246, 0.5);
+  --digital-glow-indigo: rgba(99, 102, 241, 0.15);
+}
+
+.ambient-mesh {
+  position: absolute;
+  inset: -22%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(45, 6, 49, 0.72), transparent 34%),
+    radial-gradient(circle at 78% 18%, rgba(30, 27, 75, 0.82), transparent 32%),
+    radial-gradient(circle at 52% 80%, rgba(15, 23, 42, 0.92), transparent 36%),
+    radial-gradient(circle at 86% 72%, rgba(79, 70, 229, 0.18), transparent 30%),
+    linear-gradient(135deg, #0f172a 0%, #1e1b4b 54%, #2d0631 100%);
+  filter: saturate(1.2);
+  animation: ambient-drift 18s ease-in-out infinite alternate;
+}
+
+.ambient-mesh::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 35%, rgba(255, 255, 255, 0.08), transparent 22%),
+    radial-gradient(circle at 72% 66%, rgba(244, 114, 182, 0.08), transparent 26%);
+  mix-blend-mode: screen;
+  animation: ambient-breathe 9s ease-in-out infinite;
+}
+
+@keyframes ambient-drift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, 1%, 0) scale(1.04);
+  }
+  100% {
+    transform: translate3d(-1%, 2%, 0) scale(1.02);
+  }
+}
+
+@keyframes ambient-breathe {
+  0%, 100% {
+    opacity: 0.46;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.82;
+    transform: scale(1.06);
+  }
 }
 
 /* 全局基础样式 */
@@ -72,11 +123,51 @@ body::after {
 @keyframes pulse-glow {
   0%, 100% {
     opacity: 1;
-    box-shadow: 0 0 5px rgba(129, 140, 248, 0.5);
+    box-shadow: 0 0 5px var(--digital-glow-indigo);
   }
   50% {
     opacity: 0.7;
-    box-shadow: 0 0 15px rgba(129, 140, 248, 0.8), 0 0 30px rgba(129, 140, 248, 0.4);
+    box-shadow: 0 0 15px var(--digital-glow-indigo), 0 0 30px var(--digital-glow-indigo);
+  }
+}
+
+/* 蓝色脉冲动画 */
+@keyframes pulse-blue {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--digital-glow-blue);
+  }
+  50% {
+    box-shadow: 0 0 15px var(--digital-glow-blue), 0 0 30px var(--digital-glow-blue);
+  }
+}
+
+/* 紫色脉冲动画 */
+@keyframes pulse-purple {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--digital-glow-purple);
+  }
+  50% {
+    box-shadow: 0 0 15px var(--digital-glow-purple), 0 0 30px var(--digital-glow-purple);
+  }
+}
+
+/* 浮动动画 */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* 光晕旋转动画 */
+@keyframes rotate-glow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -118,12 +209,23 @@ body::after {
   animation-delay: 0.4s;
 }
 
-/* 毛玻璃效果 */
+/* 毛玻璃效果 - 统一设计规范 */
 .glass-effect {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   background: var(--digital-surface);
   border: 1px solid var(--digital-border);
+  border-radius: 12px;
+}
+
+/* 激活态发光效果 */
+.glass-effect-active {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: var(--digital-surface);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 0 15px var(--digital-glow-indigo);
 }
 
 /* 自定义滚动条 */
@@ -151,20 +253,75 @@ body::after {
   border-color: var(--digital-accent) !important;
 }
 
+/* 渐变背景 */
+.gradient-bg {
+  background: radial-gradient(ellipse at top, var(--digital-gradient-start) 0%, var(--digital-gradient-end) 100%);
+}
+
+/* 渐变文字 */
+.gradient-text {
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 发光按钮 */
+.glow-button {
+  box-shadow: 0 0 15px var(--digital-glow-indigo);
+  transition: all 0.3s ease;
+}
+
+.glow-button:hover {
+  box-shadow: 0 0 20px var(--digital-glow-indigo), 0 0 40px var(--digital-glow-indigo);
+}
+
+/* 卡片悬浮效果 */
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 进度条发光效果 */
+.progress-glow {
+  box-shadow: 0 0 10px var(--digital-glow-indigo);
+}
+
+/* 输入框焦点效果 */
+.input-focus {
+  transition: all 0.3s ease;
+}
+
+.input-focus:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
 /* 引用标签样式 */
 .citation-tag {
-  background: rgba(129, 140, 248, 0.2);
-  color: var(--digital-accent);
-  border-radius: 4px;
-  padding: 0 4px;
+  background: rgba(129, 140, 248, 0.18);
+  color: #c4b5fd;
+  border-radius: 999px;
+  padding: 0.25rem 0.625rem;
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
 }
 
 .citation-tag:hover {
   background: rgba(129, 140, 248, 0.3);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.2);
 }
 
 /* Markdown内容样式 */
@@ -248,4 +405,102 @@ body::after {
 .markdown-content th {
   background: rgba(30, 41, 59, 0.6);
   font-weight: 600;
+}
+
+/* ========== 设计系统 - 统一视觉规范 ========== */
+
+/* 统一圆角规范 */
+.rounded-design-system {
+  border-radius: 12px; /* rounded-xl */
+}
+
+.rounded-design-system-lg {
+  border-radius: 16px; /* rounded-2xl */
+}
+
+/* 统一间距规范 */
+.spacing-container {
+  padding: 24px; /* p-6 */
+}
+
+.spacing-gap {
+  gap: 24px; /* gap-6 */
+}
+
+/* 统一边框规范 */
+.border-design-system {
+  border: 1px solid var(--digital-border);
+  background: var(--digital-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+}
+
+/* 激活态边框规范 */
+.border-design-system-active {
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  background: var(--digital-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  box-shadow: 0 0 15px var(--digital-glow-indigo);
+}
+
+/* 统一文字层级 */
+.text-title {
+  color: #f1f5f9; /* text-slate-100 */
+  font-weight: 700; /* font-bold */
+}
+
+.text-description {
+  color: #94a3b8; /* text-slate-400 */
+  font-size: 0.875rem; /* text-sm */
+}
+
+/* 统计卡片背景渐变 */
+.stat-card-gradient {
+  background: linear-gradient(to bottom right, rgba(30, 41, 59, 0.5), transparent);
+}
+
+/* 悬浮效果 - 极细边缘发光 */
+.hover-glow {
+  transition: all 0.2s ease;
+}
+
+.hover-glow:hover {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.1);
+}
+
+/* 进场动画 */
+.fade-in-up {
+  animation: fadeInUp 0.3s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 统计图标发光效果 */
+.stat-icon-glow {
+  position: relative;
+}
+
+.stat-icon-glow::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: inherit;
+  filter: blur(8px);
+  opacity: 0.5;
+  z-index: -1;
 }

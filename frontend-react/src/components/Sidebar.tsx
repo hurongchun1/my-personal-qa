@@ -1,152 +1,113 @@
-import React from 'react'
-import { motion } from 'framer-motion'
-import type { EmployeeStatus } from '../types'
+import { AnimatePresence, motion } from 'framer-motion'
+import { BookOpen, ChevronLeft, MessageSquareText } from 'lucide-react'
+import type { EmployeeStatus, ViewRoute } from '../types'
 
 interface SidebarProps {
+  currentView: ViewRoute
+  onViewChange: (view: ViewRoute) => void
   status: EmployeeStatus
-  onTabChange?: (tab: 'chat' | 'knowledge' | 'tasks') => void
-  activeTab?: 'chat' | 'knowledge' | 'tasks'
+  isCollapsed: boolean
+  onToggleCollapse: () => void
 }
 
-const statusConfig: Record<EmployeeStatus, { icon: string; label: string; color: string }> = {
-  idle: {
-    icon: '☕',
-    label: '空闲',
-    color: 'bg-emerald-500',
-  },
-  thinking: {
-    icon: '🤔',
-    label: '思考中',
-    color: 'bg-yellow-500',
-  },
-  reading: {
-    icon: '📖',
-    label: '阅读中',
-    color: 'bg-blue-500',
-  },
-  executing: {
-    icon: '⚡',
-    label: '执行中',
-    color: 'bg-purple-500',
-  },
-  speaking: {
-    icon: '💬',
-    label: '输出中',
-    color: 'bg-indigo-500',
-  },
+const statusConfig: Record<EmployeeStatus, { label: string; color: string }> = {
+  idle: { label: '空闲', color: 'bg-emerald-400' },
+  thinking: { label: '思考中', color: 'bg-amber-400' },
+  reading: { label: '阅读中', color: 'bg-sky-400' },
+  executing: { label: '执行中', color: 'bg-violet-400' },
+  speaking: { label: '输出中', color: 'bg-indigo-400' },
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+const navItems = [
+  { id: 'console' as ViewRoute, icon: MessageSquareText, label: '对话', description: '专注问答与指令' },
+  { id: 'knowledge-hub' as ViewRoute, icon: BookOpen, label: '知识库', description: '文档管理与检索' },
+]
+
+export function Sidebar({
+  currentView,
+  onViewChange,
   status,
-  onTabChange,
-  activeTab = 'chat',
-}) => {
+  isCollapsed,
+  onToggleCollapse,
+}: SidebarProps) {
   const config = statusConfig[status]
 
-  const tabs = [
-    {
-      id: 'chat' as const,
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-      ),
-      label: '对话',
-    },
-    {
-      id: 'knowledge' as const,
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-      ),
-      label: '知识库',
-    },
-    {
-      id: 'tasks' as const,
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-        </svg>
-      ),
-      label: '任务',
-    },
-  ]
-
   return (
-    <div className="w-16 flex flex-col items-center py-4 bg-slate-900/80 border-r border-slate-700/50">
-      {/* 数字员工标识 */}
-      <div className="relative mb-6">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-          <span className="text-white text-sm font-bold">AI</span>
-        </div>
-        
-        {/* 状态指示灯 */}
-        <motion.div
-          className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full ${config.color} border-2 border-slate-900`}
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [1, 0.7, 1],
-            boxShadow: [
-              '0 0 0 0 rgba(129, 140, 248, 0)',
-              '0 0 0 4px rgba(129, 140, 248, 0.3)',
-              '0 0 0 0 rgba(129, 140, 248, 0)',
-            ],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-      </div>
+    <motion.aside
+      animate={{ width: isCollapsed ? 88 : 280 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className="h-full overflow-hidden rounded-3xl border-t border-l border-white/10 border-r border-b border-black/20 bg-slate-950/45 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+    >
+      <div className="flex h-full flex-col gap-12 p-6">
+        <div className="flex items-center gap-4">
+          <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-3xl bg-gradient-to-br from-white/20 via-indigo-400/30 to-fuchsia-500/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            <span className="text-sm font-black text-white">AI</span>
+            <motion.span
+              className={`absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full ${config.color} ring-4 ring-slate-950/80`}
+              animate={{ scale: [1, 1.25, 1], opacity: [0.8, 1, 0.8] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          </div>
 
-      {/* 导航标签 */}
-      <nav className="flex-1 flex flex-col items-center space-y-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange?.(tab.id)}
-            className={`relative p-3 rounded-xl transition-all duration-200 group ${
-              activeTab === tab.id
-                ? 'bg-indigo-500/20 text-indigo-400'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-            title={tab.label}
-          >
-            {tab.icon}
-            
-            {/* 活动指示器 */}
-            {activeTab === tab.id && (
+          <AnimatePresence>
+            {!isCollapsed && (
               <motion.div
-                layoutId="sidebarActiveTab"
-                className="absolute inset-0 bg-indigo-500/10 rounded-xl -z-10"
-                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-              />
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                className="min-w-0"
+              >
+                <h1 className="truncate bg-gradient-to-r from-white to-slate-400 bg-clip-text text-lg font-bold text-transparent">
+                  数字员工
+                </h1>
+                <p className="truncate text-xs text-slate-400">{config.label}</p>
+              </motion.div>
             )}
-            
-            {/* 工具提示 */}
-            <div className="absolute left-full ml-3 px-2 py-1 bg-slate-800 text-slate-200 text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-              {tab.label}
-            </div>
-          </button>
-        ))}
-      </nav>
-
-      {/* 底部信息 */}
-      <div className="mt-auto flex flex-col items-center space-y-3">
-        {/* 状态标签 */}
-        <div className="flex flex-col items-center">
-          <span className="text-lg">{config.icon}</span>
-          <span className="text-[10px] text-slate-500 mt-1">{config.label}</span>
+          </AnimatePresence>
         </div>
-        
-        {/* 分隔线 */}
-        <div className="w-8 h-px bg-slate-700/50"></div>
-        
-        {/* 版本信息 */}
-        <span className="text-[10px] text-slate-600">v1.0</span>
+
+        <nav className="flex flex-1 flex-col gap-4">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = currentView === item.id
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => onViewChange(item.id)}
+                className={`group relative flex min-h-16 items-center gap-4 rounded-3xl border-t border-l border-white/10 border-r border-b border-black/20 px-4 text-left shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition ${
+                  isActive
+                    ? 'bg-gradient-to-br from-indigo-500/30 via-violet-500/20 to-fuchsia-500/20 text-white'
+                    : 'bg-white/[0.035] text-slate-400 hover:bg-white/[0.07] hover:text-slate-100'
+                }`}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <AnimatePresence>
+                  {!isCollapsed && (
+                    <motion.span
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -8 }}
+                      className="min-w-0"
+                    >
+                      <span className="block text-sm font-semibold">{item.label}</span>
+                      <span className="block truncate text-xs text-slate-400">{item.description}</span>
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            )
+          })}
+        </nav>
+
+        <button
+          onClick={onToggleCollapse}
+          className="grid h-12 place-items-center rounded-full border-t border-l border-white/10 border-r border-b border-black/20 bg-white/[0.04] text-slate-300 shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition hover:bg-white/[0.08] hover:text-white"
+          aria-label={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
+        >
+          <ChevronLeft className={`h-5 w-5 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
+        </button>
       </div>
-    </div>
+    </motion.aside>
   )
 }

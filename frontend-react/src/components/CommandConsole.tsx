@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react'
-import type { Message, Citation } from '../types'
+import type { Message } from '../types'
 import { ChatStream } from './ChatStream'
 import { InputNexus } from './InputNexus'
 

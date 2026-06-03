@@ -1,244 +1,136 @@
-import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import { useCallback, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useDigitalEmployee } from './hooks/useDigitalEmployee'
+import { DigitalEmployeeView } from './components/DigitalEmployeeView'
+import { KnowledgeHubView } from './components/KnowledgeHubView'
 import { Sidebar } from './components/Sidebar'
-import { CommandConsole } from './components/CommandConsole'
-import { KnowledgeBase } from './components/KnowledgeBase'
-import { TaskBoard } from './components/TaskBoard'
+import { StatusBar } from './components/StatusBar'
+import type { EmployeeStatus, ViewRoute } from './types'
+
+const pageVariants = {
+  initial: { opacity: 0, scale: 0.985, filter: 'blur(14px)' },
+  animate: { opacity: 1, scale: 1, filter: 'blur(0px)' },
+  exit: { opacity: 0, scale: 1.015, filter: 'blur(14px)' },
+}
 
 function App() {
   const {
-    // 状态
     status,
     messages,
     documents,
     tasks,
     systemStatus,
     isStreaming,
-    
-    // 操作
     sendMessage,
     addDocument,
     deleteDocument,
     processDocument,
     toggleTask,
     addTask,
+    setActiveArtifact,
   } = useDigitalEmployee()
-  
-  const [activeTab, setActiveTab] = useState<'chat' | 'knowledge' | 'tasks'>('chat')
-  
-  // 处理文件拖拽
-  const handleFileDrop = (files: FileList) => {
-    Array.from(files).forEach(file => {
-      addDocument(file)
+
+  const [currentView, setCurrentView] = useState<ViewRoute>('console')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  const handleFileDrop = useCallback((files: FileList) => {
+    Array.from(files).forEach((file) => {
+      void addDocument(file)
     })
-  }
-  
-  // 根据状态获取当前动作描述
-  const getCurrentAction = (): string => {
-    switch (status) {
-      case 'thinking':
-        return '正在思考...'
-      case 'reading':
-        return '正在阅读文档...'
-      case 'executing':
-        return '正在执行任务...'
-      case 'speaking':
-        return '正在回复...'
-      default:
-        return '等待指令'
-    }
-  }
-  
-  // 渲染主内容区域
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'chat':
-        return (
-          <motion.div
-            key="chat"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3 }}
-            className="flex-1 flex flex-col"
-          >
-            <CommandConsole
-              messages={messages}
-              isStreaming={isStreaming}
-              onSendMessage={sendMessage}
-              onFileDrop={handleFileDrop}
-            />
-          </motion.div>
-        )
-      case 'knowledge':
-        return (
-          <motion.div
-            key="knowledge"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3 }}
-            className="flex-1 flex flex-col"
-          >
-            <KnowledgeBase
-              documents={documents}
-              onUpload={addDocument}
-              onDelete={deleteDocument}
-              onProcess={processDocument}
-            />
-          </motion.div>
-        )
-      case 'tasks':
-        return (
-          <motion.div
-            key="tasks"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3 }}
-            className="flex-1 flex flex-col"
-          >
-            <TaskBoard
-              tasks={tasks}
-              onToggle={toggleTask}
-              onAdd={addTask}
-            />
-          </motion.div>
-        )
-      default:
-        return (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-4xl mb-4">🔄</div>
-              <div className="text-slate-400">加载中...</div>
-            </div>
-          </div>
-        )
-    }
-  }
-  
+  }, [addDocument])
+
   return (
-    <div className="h-screen flex overflow-hidden relative z-10">
-      {/* 左侧边栏 */}
-      <Sidebar
-        status={status}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
-      
-      {/* 主内容区域 */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* 顶部状态栏 */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="h-14 px-6 flex items-center justify-between bg-slate-900/80 border-b border-slate-700/50 backdrop-blur-sm"
-        >
-          <div className="flex items-center space-x-4">
-            <h1 className="text-lg font-semibold text-white">数字员工助手</h1>
-            <span className="text-sm text-slate-400">{getCurrentAction()}</span>
-          </div>
-          
-          <div className="flex items-center space-x-4 text-xs text-slate-500">
-            <span>文档: {systemStatus.documentCount}</span>
-            <span>•</span>
-            <span>任务: {tasks.length}</span>
-            <span>•</span>
-            <span>消息: {messages.length}</span>
-          </div>
-        </motion.div>
-        
-        {/* 内容区域 */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* 主面板 */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {renderContent()}
-          </div>
-          
-          {/* 右侧面板 - 仅在聊天模式下显示 */}
-          {activeTab === 'chat' && (
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="w-80 flex flex-col bg-slate-900/50 border-l border-slate-700/50"
-            >
-              <div className="p-4 border-b border-slate-700/50">
-                <h3 className="text-sm font-medium text-slate-200">知识库概览</h3>
-                <p className="text-xs text-slate-500 mt-1">快速查看文档和状态</p>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {documents.slice(0, 5).map((doc, index) => (
+    <main className="relative h-screen overflow-hidden bg-[#0f172a] text-slate-100">
+      <div className="ambient-mesh" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.08),transparent_36%),linear-gradient(120deg,rgba(255,255,255,0.05),transparent_28%,rgba(0,0,0,0.25))] pointer-events-none" />
+
+      <div className="relative z-10 h-full p-8 md:p-10 xl:p-12">
+        <div className="grid h-full grid-cols-[auto_minmax(0,1fr)] gap-12">
+          <Sidebar
+            currentView={currentView}
+            onViewChange={setCurrentView}
+            status={status}
+            isCollapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
+          />
+
+          <section className="min-w-0 flex flex-col gap-12 overflow-hidden">
+            <StatusBar
+              status={status}
+              currentAction={getCurrentAction(status)}
+              systemStatus={systemStatus}
+            />
+
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-3xl border-t border-l border-white/10 border-r border-b border-black/20 bg-slate-950/35 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
+              <AnimatePresence mode="wait">
+                {currentView === 'console' ? (
                   <motion.div
-                    key={doc.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="bg-slate-800/40 rounded-xl p-3 hover:bg-slate-800/60 transition-colors"
+                    key="console"
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                    className="h-full"
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className="text-xl">
-                        {doc.fileType === 'pdf' ? '📄' : 
-                         doc.fileType === 'md' ? '📝' : 
-                         doc.fileType === 'html' ? '🌐' : '📃'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-slate-200 truncate">
-                          {doc.filename}
-                        </h4>
-                        <div className="flex items-center space-x-2 mt-1 text-xs text-slate-500">
-                          <span>{doc.status === 'completed' ? '✅' : '⏳'}</span>
-                          <span>{doc.fileType.toUpperCase()}</span>
-                        </div>
-                      </div>
-                    </div>
+                    <DigitalEmployeeView
+                      messages={messages}
+                      documents={documents}
+                      tasks={tasks}
+                      systemStatus={systemStatus}
+                      isStreaming={isStreaming}
+                      status={status}
+                      onSendMessage={sendMessage}
+                      onFileDrop={handleFileDrop}
+                      onArtifactChange={setActiveArtifact}
+                      onDocumentUpload={addDocument}
+                      onDocumentDelete={deleteDocument}
+                      onDocumentProcess={processDocument}
+                      onTaskToggle={toggleTask}
+                      onTaskAdd={addTask}
+                    />
                   </motion.div>
-                ))}
-                
-                {documents.length === 0 && (
-                  <div className="text-center py-8">
-                    <div className="text-2xl mb-2">📚</div>
-                    <div className="text-sm text-slate-400">暂无文档</div>
-                    <div className="text-xs text-slate-500 mt-1">上传文档开始构建知识库</div>
-                  </div>
+                ) : (
+                  <motion.div
+                    key="knowledge-hub"
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                    className="h-full"
+                  >
+                    <KnowledgeHubView
+                      documents={documents}
+                      systemStatus={systemStatus}
+                      onDocumentUpload={addDocument}
+                      onDocumentDelete={deleteDocument}
+                      onDocumentProcess={processDocument}
+                    />
+                  </motion.div>
                 )}
-              </div>
-              
-              {/* 底部统计 */}
-              <div className="p-4 border-t border-slate-700/50">
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>总文档: {documents.length}</span>
-                  <span>运行时间: {Math.floor(systemStatus.uptime / 3600)}h</span>
-                </div>
-              </div>
-            </motion.div>
-          )}
+              </AnimatePresence>
+            </div>
+          </section>
         </div>
-        
-        {/* 底部状态栏 */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          className="h-8 px-4 flex items-center justify-between text-xs text-slate-500 border-t border-slate-700/50 bg-slate-900/80 backdrop-blur-sm"
-        >
-          <div className="flex items-center space-x-4">
-            <span>数字员工系统 v1.0.0</span>
-            <span>•</span>
-            <span>内存: {Math.round(systemStatus.memoryUsage)} MB</span>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <span>{new Date().toLocaleTimeString('zh-CN', { 
-              hour: '2-digit', 
-              minute: '2-digit',
-              second: '2-digit'
-            })}</span>
-          </div>
-        </motion.div>
       </div>
-    </div>
+    </main>
   )
+}
+
+function getCurrentAction(status: EmployeeStatus): string {
+  switch (status) {
+    case 'thinking':
+      return '正在思考...'
+    case 'reading':
+      return '正在阅读文档...'
+    case 'executing':
+      return '正在执行任务...'
+    case 'speaking':
+      return '正在回复...'
+    default:
+      return '等待指令'
+  }
 }
 
 export default App

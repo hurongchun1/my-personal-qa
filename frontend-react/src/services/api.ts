@@ -135,14 +135,16 @@ export const documentApi = {
     return result.data
   },
   
-  // 删除文档
-  async deleteDocument(id: string): Promise<void> {
-    await request(`/documents/${id}`, { method: 'DELETE' })
+  // 删除文档（本地状态管理，后端暂未实现DELETE端点）
+  async deleteDocument(_id: string): Promise<void> {
+    // 后端未实现DELETE /documents/{id}，直接返回
+    return Promise.resolve()
   },
   
-  // 处理文档
-  async processDocument(id: string): Promise<void> {
-    await request(`/documents/${id}/process`, { method: 'POST' })
+  // 处理文档（本地状态管理，后端暂未实现process端点）
+  async processDocument(_id: string): Promise<void> {
+    // 后端未实现POST /documents/{id}/process，直接返回
+    return Promise.resolve()
   },
 }
 
