@@ -3,7 +3,7 @@
 使用方式：from backend.common.exceptions import RAGException, NotFoundException
 """
 
-from .rag import (
+from .rag_exceptions import (
     RAGException,
     SearchException,
     LLMException,

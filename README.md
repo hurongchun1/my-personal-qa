@@ -39,7 +39,7 @@ my-personal-qa/
 │   │   ├── result_info.py # 统一响应格式
 │   │   └── exceptions/        # 异常类子包
 │   │       ├── __init__.py    # 统一导出
-│   │       └── rag.py         # RAG 模块异常类
+│   │       └── rag_exceptions.py  # RAG 模块异常类
 │   ├── database/          # 数据库模块
 │   │   ├── __init__.py
 │   │   └── connection.py  # SQLite 数据库连接管理

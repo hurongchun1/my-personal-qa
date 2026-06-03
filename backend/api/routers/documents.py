@@ -21,6 +21,40 @@ async def supported_types():
     methods = [key for key in LOADER_MAP.keys()]
     return ResultInfo.success(methods)
 
+@router.get("")
+async def list_documents(db: Connection = Depends(get_db)):
+    '''获取文档列表
+    
+    Args：
+        db：数据库连接
+    
+    Returns：
+        文档列表，包含id、文件名、文件类型、文件大小、状态、创建时间等
+    '''
+    try:
+        sql = "SELECT id, file_name, file_type, file_size, chunk_count, status, create_time FROM documents ORDER BY create_time DESC"
+        cursor = db.cursor()
+        cursor.execute(sql)
+        documents = cursor.fetchall()
+        
+        # 转换为字典列表
+        doc_list = []
+        for doc in documents:
+            doc_dict = {
+                "id": doc[0],
+                "file_name": doc[1],
+                "file_type": doc[2],
+                "file_size": doc[3],
+                "chunk_count": doc[4],
+                "status": doc[5],
+                "create_time": doc[6]
+            }
+            doc_list.append(doc_dict)
+        
+        return ResultInfo.success(doc_list)
+    except Exception as e:
+        raise HTTPException(500, f"获取文档列表失败: {str(e)}")
+
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
