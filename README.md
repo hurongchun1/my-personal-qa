@@ -37,7 +37,9 @@ my-personal-qa/
 │   │   ├── __init__.py
 │   │   ├── constant.py    # 常量定义（Storage、ResultCode、ResultMsg）
 │   │   ├── result_info.py # 统一响应格式
-│   │   └── exceptions.py  # 自定义异常类
+│   │   └── exceptions/        # 异常类子包
+│   │       ├── __init__.py    # 统一导出
+│   │       └── rag.py         # RAG 模块异常类
 │   ├── database/          # 数据库模块
 │   │   ├── __init__.py
 │   │   └── connection.py  # SQLite 数据库连接管理
@@ -250,7 +252,7 @@ CREATE TABLE documents (
 - [x] **公共模块** (`common/`)
   - [x] `constant.py` - 常量集中管理
   - [x] `result_info.py` - 统一响应格式
-  - [x] `exceptions.py` - 自定义异常类
+  - [x] `exceptions/` - 异常类子包（RAG、API、验证等）
 
 - [x] **数据库模块** (`database/`)
   - [x] `connection.py` - SQLite 连接管理

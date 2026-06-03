@@ -3,10 +3,13 @@ RAG API 主应用文件
 FastAPI 应用入口
 """
 
+import traceback
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
+from ..common.exceptions import RAGException
 from .dependencies import shutdown_event, startup_event
 from .routers import query, documents
 
@@ -30,6 +33,30 @@ app = FastAPI(
     version="1.0.0",
     lifespan = lifespan # 传入生命周期管理
 )
+
+# 全局异常处理器 - 开发阶段显示详细错误信息
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """捕获所有未处理的异常，返回详细错误信息"""
+    error_detail = traceback.format_exc()
+    print(f"未捕获的异常: {error_detail}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": 500,
+            "msg": str(exc),
+            "detail": error_detail
+        }
+    )
+
+# RAG 业务异常处理器
+@app.exception_handler(RAGException)
+async def rag_exception_handler(request: Request, exc: RAGException):
+    """处理 RAG 业务异常"""
+    return JSONResponse(
+        status_code=exc.code,
+        content=exc.to_dict()
+    )
 
 # 配置中间件
 app.add_middleware(

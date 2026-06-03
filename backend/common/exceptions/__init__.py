@@ -1,7 +1,9 @@
-# Common 包初始化文件
-from .constant import Constant
-from .result_info import ResultInfo
-from .exceptions import (
+"""
+异常类统一导出
+使用方式：from backend.common.exceptions import RAGException, NotFoundException
+"""
+
+from .rag import (
     RAGException,
     SearchException,
     LLMException,
@@ -11,8 +13,6 @@ from .exceptions import (
 )
 
 __all__ = [
-    "Constant",
-    "ResultInfo",
     "RAGException",
     "SearchException",
     "LLMException",

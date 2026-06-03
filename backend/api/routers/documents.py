@@ -40,32 +40,30 @@ async def upload_document(
     file_ext = os.path.splitext(file.filename)[1]
     unique_file_name = uuid.uuid4().hex + file_ext
 
+    # 确保上传目录存在
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+
     # 构建完整的文件保存路径
-    file_path = os.path.join(UPLOAD_DIR,unique_file_name)
+    file_path = os.path.join(UPLOAD_DIR, unique_file_name)
 
     # 保存文件到磁盘
     try:
-        # 读取上传文件的内容
         file_content = await file.read()
 
-        # 写入文件
-        with open(file_path,"wb") as f:
+        with open(file_path, "wb") as f:
             f.write(file_content)
 
-        print(f"文件保存成功:{file_path}")
+        print(f"文件保存成功: {file_path}")
     except Exception as e:
-        print(f"文件保存失败：{e}")
-        raise
+        print(f"文件保存失败: {e}")
+        raise HTTPException(500, f"文件保存失败: {str(e)}")
 
     # 将文件信息保存到数据库中
-
     try:
-        # 构建SQL插入语句
-        sql = "INSERT INTO documents(file_name,file_path,file_type,file_size,status)VALUES(?,?,?,?,?)"
+        sql = "INSERT INTO documents(file_name, file_path, file_type, file_size, status) VALUES (?, ?, ?, ?, ?)"
 
-        # 执行SQL(使用参数化查询防止SQL注入)
         cursor = db.cursor()
-        cursor.execute(sql,(
+        cursor.execute(sql, (
             file.filename,
             file_path,
             file_ext,
@@ -73,14 +71,15 @@ async def upload_document(
             "pending"
         ))
 
-        # 获取插入的记录ID
         document_id = cursor.lastrowid
         db.commit()
         print(f"元数据保存成功，文档ID: {document_id}")
-        # 返回上传结果
-        return ResultInfo.success(document_id) 
-    
+        return ResultInfo.success(document_id)
+
     except Exception as e:
-        print(f"元数据保存失败:{e}")
+        print(f"元数据保存失败: {e}")
         db.rollback()
-        raise HTTPException(500,"文件上传失败")
+        # 保存失败时删除已上传的文件
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(500, f"文件上传失败: {str(e)}")
