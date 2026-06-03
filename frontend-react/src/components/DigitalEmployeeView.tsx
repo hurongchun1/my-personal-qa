@@ -31,6 +31,10 @@ interface DigitalEmployeeViewProps {
   onTaskAdd?: (title: string, description?: string, priority?: Task['priority']) => void
 }
 
+/**
+ * DigitalEmployeeView — 控制台视窗
+ * 悬浮岛屿架构：聊天区 + 输入区 + 可选的右侧面板
+ */
 export function DigitalEmployeeView({
   messages,
   documents,
@@ -56,12 +60,15 @@ export function DigitalEmployeeView({
 
   return (
     <div className="relative h-full overflow-hidden">
-      <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] gap-12 p-8 lg:p-12">
-        <section className="relative min-w-0 overflow-hidden">
-          <div className="pointer-events-none absolute left-1/2 top-0 h-72 w-[min(56rem,80vw)] -translate-x-1/2 rounded-full bg-indigo-400/10 blur-3xl" />
+      <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] gap-6 p-4 md:p-6">
+        {/* 聊天区 — 悬浮岛屿 */}
+        <section className="relative min-w-0 overflow-hidden rounded-3xl bg-white/[0.02] backdrop-blur-2xl border border-white/[0.05]">
+          {/* 顶部环境光 */}
+          <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-[min(52rem,75vw)] -translate-x-1/2 rounded-full bg-indigo-400/[0.06] blur-3xl" />
 
           <div className="relative flex h-full flex-col">
-            <div className="min-h-0 flex-1 pb-40">
+            {/* 对话流 */}
+            <div className="min-h-0 flex-1 pb-36">
               <ChatStream
                 messages={messages}
                 isStreaming={isStreaming}
@@ -69,30 +76,33 @@ export function DigitalEmployeeView({
               />
             </div>
 
-            <div className="absolute inset-x-0 bottom-0 px-6 pb-2">
+            {/* 输入区 — 固定在底部 */}
+            <div className="absolute inset-x-0 bottom-0 px-4 pb-3">
               <div className="mx-auto max-w-4xl">
                 <InputNexus
                   onSendMessage={onSendMessage}
                   onFileDrop={onFileDrop}
                   disabled={isStreaming}
                 />
-                <div className="mt-4 flex justify-center gap-4 text-xs text-slate-600">
-                  <span>{systemStatus.documentCount} documents</span>
-                  <span>{status}</span>
+                <div className="mt-3 flex justify-center gap-4 text-[11px] text-slate-600">
+                  <span>{systemStatus.documentCount} 文档</span>
+                  <span>·</span>
+                  <span className="capitalize">{status}</span>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
+        {/* 右侧 Artifacts 面板 — 悬浮岛屿 */}
         <AnimatePresence>
           {showArtifacts && (
             <motion.aside
-              initial={{ width: 0, opacity: 0, scale: 0.96, filter: 'blur(12px)' }}
-              animate={{ width: 420, opacity: 1, scale: 1, filter: 'blur(0px)' }}
-              exit={{ width: 0, opacity: 0, scale: 0.96, filter: 'blur(12px)' }}
-              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="h-full overflow-hidden rounded-3xl border-t border-l border-white/10 border-r border-b border-black/20 bg-slate-950/55 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+              initial={{ width: 0, opacity: 0, x: 20 }}
+              animate={{ width: 400, opacity: 1, x: 0 }}
+              exit={{ width: 0, opacity: 0, x: 20 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="island h-full overflow-hidden"
             >
               <ArtifactsContainer
                 activeArtifact={activeArtifact}
@@ -113,13 +123,18 @@ export function DigitalEmployeeView({
         </AnimatePresence>
       </div>
 
+      {/* 面板切换按钮 */}
       <button
         type="button"
-        onClick={() => setShowArtifacts((value) => !value)}
-        className="absolute right-8 bottom-8 z-30 grid h-12 w-12 place-items-center rounded-full border-t border-l border-white/10 border-r border-b border-black/20 bg-slate-950/70 text-slate-300 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:bg-white/[0.08] hover:text-white"
+        onClick={() => setShowArtifacts((v) => !v)}
+        className="absolute right-6 bottom-6 z-30 grid h-11 w-11 place-items-center rounded-2xl bg-white/[0.04] border border-white/[0.06] text-slate-400 backdrop-blur-2xl transition-all duration-200 hover:bg-white/[0.1] hover:text-white hover:border-white/[0.12]"
         aria-label={showArtifacts ? '隐藏面板' : '显示面板'}
       >
-        {showArtifacts ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
+        {showArtifacts ? (
+          <PanelRightClose className="h-5 w-5" />
+        ) : (
+          <PanelRightOpen className="h-5 w-5" />
+        )}
       </button>
     </div>
   )

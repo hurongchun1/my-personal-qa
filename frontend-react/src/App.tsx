@@ -1,16 +1,30 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useDigitalEmployee } from './hooks/useDigitalEmployee'
+import { Layout } from './components/Layout'
 import { DigitalEmployeeView } from './components/DigitalEmployeeView'
 import { KnowledgeHubView } from './components/KnowledgeHubView'
 import { Sidebar } from './components/Sidebar'
 import { StatusBar } from './components/StatusBar'
 import type { EmployeeStatus, ViewRoute } from './types'
 
-const pageVariants = {
-  initial: { opacity: 0, scale: 0.985, filter: 'blur(14px)' },
-  animate: { opacity: 1, scale: 1, filter: 'blur(0px)' },
-  exit: { opacity: 0, scale: 1.015, filter: 'blur(14px)' },
+/**
+ * 页面切换动画配置 — 横向滑入 + 微模糊
+ * 
+ * 根据切换方向决定 slide 方向：
+ * - console → knowledge-hub：knowledge-hub 从右侧滑入
+ * - knowledge-hub → console：console 从左侧滑入
+ */
+const slideFromRight = {
+  initial: { opacity: 0, x: 60, filter: 'blur(4px)' },
+  animate: { opacity: 1, x: 0, filter: 'blur(0px)' },
+  exit: { opacity: 0, x: -40, filter: 'blur(4px)' },
+}
+
+const slideFromLeft = {
+  initial: { opacity: 0, x: -60, filter: 'blur(4px)' },
+  animate: { opacity: 1, x: 0, filter: 'blur(0px)' },
+  exit: { opacity: 0, x: 40, filter: 'blur(4px)' },
 }
 
 function App() {
@@ -32,89 +46,113 @@ function App() {
 
   const [currentView, setCurrentView] = useState<ViewRoute>('console')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const prevView = useRef<ViewRoute>('console')
 
-  const handleFileDrop = useCallback((files: FileList) => {
-    Array.from(files).forEach((file) => {
-      void addDocument(file)
-    })
-  }, [addDocument])
+  /**
+   * 处理视图切换并记录方向
+   */
+  const handleViewChange = useCallback((view: ViewRoute) => {
+    prevView.current = currentView
+    setCurrentView(view)
+  }, [currentView])
+
+  /**
+   * 根据切换方向选择动画
+   */
+  const isForward = currentView === 'console'
+    ? prevView.current === 'knowledge-hub'
+    : prevView.current === 'console'
+
+  const pageVariants = isForward
+    ? (currentView === 'console' ? slideFromLeft : slideFromRight)
+    : (currentView === 'console' ? slideFromRight : slideFromLeft)
+
+  const handleFileDrop = useCallback(
+    (files: FileList) => {
+      Array.from(files).forEach((file) => {
+        void addDocument(file)
+      })
+    },
+    [addDocument]
+  )
 
   return (
-    <main className="relative h-screen overflow-hidden bg-[#0f172a] text-slate-100">
-      <div className="ambient-mesh" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.08),transparent_36%),linear-gradient(120deg,rgba(255,255,255,0.05),transparent_28%,rgba(0,0,0,0.25))] pointer-events-none" />
+    <Layout>
+      <div className="grid h-full grid-cols-[auto_minmax(0,1fr)] gap-6">
+        {/* 侧边栏 — 独立悬浮岛屿 */}
+        <Sidebar
+          currentView={currentView}
+          onViewChange={handleViewChange}
+          status={status}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        />
 
-      <div className="relative z-10 h-full p-8 md:p-10 xl:p-12">
-        <div className="grid h-full grid-cols-[auto_minmax(0,1fr)] gap-12">
-          <Sidebar
-            currentView={currentView}
-            onViewChange={setCurrentView}
-            status={status}
-            isCollapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
-          />
-
-          <section className="min-w-0 flex flex-col gap-12 overflow-hidden">
+        {/* 主内容区 */}
+        <section className="min-w-0 flex flex-col gap-5 overflow-hidden">
+          {/* 状态栏 — 悬浮岛屿 */}
+          <div className="island flex-shrink-0 px-5 py-3">
             <StatusBar
               status={status}
               currentAction={getCurrentAction(status)}
               systemStatus={systemStatus}
             />
+          </div>
 
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-3xl border-t border-l border-white/10 border-r border-b border-black/20 bg-slate-950/35 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
-              <AnimatePresence mode="wait">
-                {currentView === 'console' ? (
-                  <motion.div
-                    key="console"
-                    variants={pageVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                    className="h-full"
-                  >
-                    <DigitalEmployeeView
-                      messages={messages}
-                      documents={documents}
-                      tasks={tasks}
-                      systemStatus={systemStatus}
-                      isStreaming={isStreaming}
-                      status={status}
-                      onSendMessage={sendMessage}
-                      onFileDrop={handleFileDrop}
-                      onArtifactChange={setActiveArtifact}
-                      onDocumentUpload={addDocument}
-                      onDocumentDelete={deleteDocument}
-                      onDocumentProcess={processDocument}
-                      onTaskToggle={toggleTask}
-                      onTaskAdd={addTask}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="knowledge-hub"
-                    variants={pageVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                    className="h-full"
-                  >
-                    <KnowledgeHubView
-                      documents={documents}
-                      systemStatus={systemStatus}
-                      onDocumentUpload={addDocument}
-                      onDocumentDelete={deleteDocument}
-                      onDocumentProcess={processDocument}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </section>
-        </div>
+          {/* 内容视窗 — 悬浮岛屿 + 页面切换 */}
+          <div className="island relative min-h-0 flex-1 overflow-hidden">
+            <AnimatePresence mode="wait" initial={false}>
+              {currentView === 'console' ? (
+                <motion.div
+                  key="console"
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="h-full"
+                >
+                  <DigitalEmployeeView
+                    messages={messages}
+                    documents={documents}
+                    tasks={tasks}
+                    systemStatus={systemStatus}
+                    isStreaming={isStreaming}
+                    status={status}
+                    onSendMessage={sendMessage}
+                    onFileDrop={handleFileDrop}
+                    onArtifactChange={setActiveArtifact}
+                    onDocumentUpload={addDocument}
+                    onDocumentDelete={deleteDocument}
+                    onDocumentProcess={processDocument}
+                    onTaskToggle={toggleTask}
+                    onTaskAdd={addTask}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="knowledge-hub"
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="h-full overflow-auto"
+                >
+                  <KnowledgeHubView
+                    documents={documents}
+                    systemStatus={systemStatus}
+                    onDocumentUpload={addDocument}
+                    onDocumentDelete={deleteDocument}
+                    onDocumentProcess={processDocument}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </section>
       </div>
-    </main>
+    </Layout>
   )
 }
 

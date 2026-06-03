@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Task, TaskStatus, TaskPriority } from '../types'
 
@@ -8,113 +8,63 @@ interface TaskBoardProps {
   onAdd?: (title: string, description?: string, priority?: Task['priority']) => void
 }
 
-const statusConfig: Record<TaskStatus, { label: string; color: string; icon: string; bgColor: string }> = {
-  todo: {
-    label: '待办',
-    color: 'text-slate-400',
-    icon: '⭕',
-    bgColor: 'bg-slate-500/10',
-  },
-  in_progress: {
-    label: '进行中',
-    color: 'text-blue-400',
-    icon: '🔄',
-    bgColor: 'bg-blue-500/10',
-  },
-  done: {
-    label: '已完成',
-    color: 'text-emerald-400',
-    icon: '✅',
-    bgColor: 'bg-emerald-500/10',
-  },
+const statusConfig: Record<TaskStatus, { label: string; color: string }> = {
+  todo: { label: '待办', color: '#94a3b8' },
+  in_progress: { label: '进行中', color: '#60a5fa' },
+  done: { label: '已完成', color: '#34d399' },
 }
 
-const priorityConfig: Record<TaskPriority, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  low: {
-    label: '低',
-    color: 'text-slate-400',
-    bgColor: 'bg-slate-500/20',
-    borderColor: 'border-slate-500/30',
-  },
-  medium: {
-    label: '中',
-    color: 'text-yellow-400',
-    bgColor: 'bg-yellow-500/20',
-    borderColor: 'border-yellow-500/30',
-  },
-  high: {
-    label: '高',
-    color: 'text-red-400',
-    bgColor: 'bg-red-500/20',
-    borderColor: 'border-red-500/30',
-  },
+const priorityConfig: Record<TaskPriority, { label: string; color: string }> = {
+  low: { label: '低', color: '#94a3b8' },
+  medium: { label: '中', color: '#fbbf24' },
+  high: { label: '高', color: '#f87171' },
 }
 
-export const TaskBoard: React.FC<TaskBoardProps> = ({
-  tasks,
-  onToggle,
-  onAdd,
-}) => {
+export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onToggle, onAdd }) => {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDescription, setNewTaskDescription] = useState('')
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium')
-  
-  // 按状态分组任务
+
   const groupedTasks = {
-    todo: tasks.filter(t => t.status === 'todo'),
-    in_progress: tasks.filter(t => t.status === 'in_progress'),
-    done: tasks.filter(t => t.status === 'done'),
+    in_progress: tasks.filter((t) => t.status === 'in_progress'),
+    todo: tasks.filter((t) => t.status === 'todo'),
+    done: tasks.filter((t) => t.status === 'done'),
   }
-  
-  // 添加任务
+
   const handleAddTask = () => {
     if (!newTaskTitle.trim()) return
-    
     onAdd?.(newTaskTitle.trim(), newTaskDescription.trim() || undefined, newTaskPriority)
-    
-    // 重置表单
-    setNewTaskTitle('')
-    setNewTaskDescription('')
-    setNewTaskPriority('medium')
+    setNewTaskTitle(''); setNewTaskDescription(''); setNewTaskPriority('medium')
     setShowAddForm(false)
   }
-  
-  // 格式化日期
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('zh-CN', {
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-  
-  // 渲染任务卡片
-  const renderTaskCard = (task: Task, index: number) => {
-    const statusInfo = statusConfig[task.status]
-    const priorityInfo = priorityConfig[task.priority]
-    
+
+  const formatDate = (date: Date): string =>
+    date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+
+  const renderTaskCard = (task: Task, _index: number) => {
+    const st = statusConfig[task.status]
+    const pri = priorityConfig[task.priority]
+
     return (
       <motion.div
         key={task.id}
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.05 }}
-        whileHover={{ scale: 1.01, y: -1 }}
-        className={`p-5 rounded-2xl bg-gradient-to-br from-slate-800/50 to-transparent border border-white/5 backdrop-blur-md hover:border-indigo-500/40 transition-all group hover:shadow-[0_0_15px_rgba(99,102,241,0.15)] hover:bg-slate-800/60 ${
-          task.status === 'done' ? 'opacity-60' : ''
-        }`}
+        className={`bento-card group py-3 px-4 ${task.status === 'done' ? 'opacity-50' : ''}`}
       >
-        <div className="flex items-start space-x-3">
+        <div className="flex items-start gap-3">
           {/* 复选框 */}
           <button
             onClick={() => onToggle?.(task.id)}
-            className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+            className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-white/[0.12] transition-all hover:border-indigo-400/50"
+            style={
               task.status === 'done'
-                ? 'bg-emerald-500 border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                ? { background: '#34d399', borderColor: '#34d399', boxShadow: '0 0 8px rgba(52,211,153,0.4)' }
                 : task.status === 'in_progress'
-                ? 'bg-blue-500 border-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]'
-                : 'border-slate-600 hover:border-indigo-500 hover:shadow-[0_0_8px_rgba(99,102,241,0.3)]'
-            }`}
+                ? { background: '#60a5fa', borderColor: '#60a5fa', boxShadow: '0 0 8px rgba(96,165,250,0.4)' }
+                : {}
+            }
           >
             {task.status === 'done' && (
               <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -125,48 +75,37 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
               <motion.div
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 1.5, repeat: Infinity }}
-                className="w-2 h-2 rounded-full bg-white"
+                className="h-2 w-2 rounded-full bg-white"
               />
             )}
           </button>
-          
-          {/* 任务内容 */}
+
+          {/* 内容 */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-2">
-              <h4 className={`text-sm font-medium ${
-                task.status === 'done' ? 'line-through text-slate-500' : 'text-slate-200'
-              }`}>
+            <div className="flex items-center gap-2">
+              <h4 className={`text-[13px] font-medium ${task.status === 'done' ? 'line-through text-slate-500' : 'text-slate-200'}`}>
                 {task.title}
               </h4>
-              
-              {/* 优先级徽章 */}
-              <span className={`px-1.5 py-0.5 rounded text-xs ${priorityInfo.color} ${priorityInfo.bgColor} ${priorityInfo.borderColor} border`}>
-                {priorityInfo.label}
+              <span
+                className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium border"
+                style={{ color: pri.color, borderColor: `${pri.color}30`, background: `${pri.color}10` }}
+              >
+                {pri.label}
               </span>
             </div>
-            
             {task.description && (
-              <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                {task.description}
-              </p>
+              <p className="mt-0.5 text-[11px] text-slate-500 line-clamp-2">{task.description}</p>
             )}
-            
-            <div className="flex items-center space-x-3 mt-2 text-xs text-slate-500">
-              <span className={`${statusInfo.color} ${statusInfo.bgColor} px-1.5 py-0.5 rounded`}>
-                {statusInfo.icon} {statusInfo.label}
+            <div className="mt-1.5 flex items-center gap-2 text-[10px] text-slate-600">
+              <span style={{ color: st.color, background: `${st.color}12` }} className="rounded px-1.5 py-0.5">
+                {st.label}
               </span>
-              <span>•</span>
-              <span>创建于 {formatDate(task.createdAt)}</span>
+              <span>·</span>
+              <span>{formatDate(task.createdAt)}</span>
               {task.dueDate && (
                 <>
-                  <span>•</span>
+                  <span>·</span>
                   <span>截止 {formatDate(task.dueDate)}</span>
-                </>
-              )}
-              {task.completedAt && (
-                <>
-                  <span>•</span>
-                  <span>完成于 {formatDate(task.completedAt)}</span>
                 </>
               )}
             </div>
@@ -175,89 +114,80 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
       </motion.div>
     )
   }
-  
+
   return (
     <div className="h-full flex flex-col">
-      {/* 头部操作栏 */}
-      <div className="p-6 border-b border-white/5">
+      {/* 头部 */}
+      <div className="px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-100">任务看板</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              管理你的待办事项和任务
-            </p>
+            <h3 className="text-sm font-semibold text-slate-100">任务看板</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">管理你的待办事项</p>
           </div>
-          
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm hover:bg-indigo-700 transition-colors shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:shadow-[0_0_20px_rgba(99,102,241,0.5)]"
+            className="flex items-center gap-1 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 transition-colors shadow-[0_0_16px_rgba(99,102,241,0.3)]"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            <span>添加任务</span>
-          </motion.button>
+            添加
+          </button>
         </div>
-        
-        {/* 添加任务表单 */}
+
+        {/* 添加表单 */}
         <AnimatePresence>
           {showAddForm && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-4 space-y-3"
+              className="mt-3 space-y-2 overflow-hidden"
             >
               <input
                 type="text"
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 placeholder="任务标题"
-                className="w-full px-4 py-3 bg-slate-900/40 backdrop-blur-md rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none border border-white/5 focus:border-indigo-500/40 focus:shadow-[0_0_15px_rgba(99,102,241,0.15)] transition-all"
+                className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
-              
               <textarea
                 value={newTaskDescription}
                 onChange={(e) => setNewTaskDescription(e.target.value)}
-                placeholder="任务描述（可选）"
+                placeholder="描述（可选）"
                 rows={2}
-                className="w-full px-4 py-3 bg-slate-900/40 backdrop-blur-md rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none border border-white/5 focus:border-indigo-500/40 focus:shadow-[0_0_15px_rgba(99,102,241,0.15)] transition-all resize-none"
+                className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-500 outline-none resize-none focus:ring-2 focus:ring-indigo-500/20"
               />
-              
-              <div className="flex items-center space-x-3">
-                <span className="text-xs text-slate-400">优先级:</span>
-                {(['low', 'medium', 'high'] as TaskPriority[]).map((priority) => {
-                  const info = priorityConfig[priority]
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-500">优先级:</span>
+                {(['low', 'medium', 'high'] as TaskPriority[]).map((p) => {
+                  const info = priorityConfig[p]
                   return (
                     <button
-                      key={priority}
-                      onClick={() => setNewTaskPriority(priority)}
-                      className={`px-2 py-1 rounded text-xs transition-all border ${
-                        newTaskPriority === priority
-                          ? `${info.bgColor} ${info.color} ${info.borderColor}`
-                          : 'text-slate-500 hover:text-slate-300 border-transparent hover:border-white/10'
-                      }`}
+                      key={p}
+                      onClick={() => setNewTaskPriority(p)}
+                      className="rounded px-2 py-0.5 text-[10px] border transition-all"
+                      style={
+                        newTaskPriority === p
+                          ? { color: info.color, borderColor: `${info.color}40`, background: `${info.color}12` }
+                          : { color: '#64748b', borderColor: 'transparent' }
+                      }
                     >
                       {info.label}
                     </button>
                   )
                 })}
-                
-                <div className="flex-1"></div>
-                
+                <div className="flex-1" />
                 <button
                   onClick={handleAddTask}
                   disabled={!newTaskTitle.trim()}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 transition-colors shadow-[0_0_10px_rgba(99,102,241,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-lg bg-indigo-600 px-3 py-1 text-[11px] text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  添加
+                  确认
                 </button>
-                
                 <button
                   onClick={() => setShowAddForm(false)}
-                  className="px-3 py-1.5 rounded-lg text-slate-400 text-sm hover:text-slate-200 transition-colors hover:bg-slate-800/50"
+                  className="rounded-lg px-3 py-1 text-[11px] text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] transition-colors"
                 >
                   取消
                 </button>
@@ -266,69 +196,59 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
           )}
         </AnimatePresence>
       </div>
-      
+
       {/* 任务列表 */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* 进行中的任务 */}
-        {groupedTasks.in_progress.length > 0 && (
-          <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                进行中 ({groupedTasks.in_progress.length})
-              </h4>
-            </div>
-            <div className="space-y-4">
-              {groupedTasks.in_progress.map((task, index) => renderTaskCard(task, index))}
-            </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        {tasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="text-3xl mb-2">📋</div>
+            <p className="text-sm text-slate-400">暂无任务</p>
+            <p className="text-[11px] text-slate-600 mt-0.5">点击"添加"创建新任务</p>
           </div>
-        )}
-        
-        {/* 待办任务 */}
-        {groupedTasks.todo.length > 0 && (
-          <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-2 h-2 rounded-full bg-slate-400"></div>
-              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                待办 ({groupedTasks.todo.length})
-              </h4>
-            </div>
-            <div className="space-y-4">
-              {groupedTasks.todo.map((task, index) => renderTaskCard(task, index))}
-            </div>
-          </div>
-        )}
-        
-        {/* 已完成任务 */}
-        {groupedTasks.done.length > 0 && (
-          <div>
-            <div className="flex items-center space-x-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                已完成 ({groupedTasks.done.length})
-              </h4>
-            </div>
-            <div className="space-y-3">
-              {groupedTasks.done.map((task, index) => renderTaskCard(task, index))}
-            </div>
-          </div>
-        )}
-        
-        {/* 空状态 */}
-        {tasks.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-12"
-          >
-            <div className="text-4xl mb-3">📋</div>
-            <div className="text-slate-400">暂无任务</div>
-            <div className="text-sm text-slate-500 mt-1">
-              点击"添加任务"创建新任务
-            </div>
-          </motion.div>
+        ) : (
+          <>
+            {groupedTasks.in_progress.length > 0 && (
+              <Section label="进行中" count={groupedTasks.in_progress.length} color="#60a5fa">
+                {groupedTasks.in_progress.map((t, i) => renderTaskCard(t, i))}
+              </Section>
+            )}
+            {groupedTasks.todo.length > 0 && (
+              <Section label="待办" count={groupedTasks.todo.length} color="#94a3b8">
+                {groupedTasks.todo.map((t, i) => renderTaskCard(t, i))}
+              </Section>
+            )}
+            {groupedTasks.done.length > 0 && (
+              <Section label="已完成" count={groupedTasks.done.length} color="#34d399">
+                {groupedTasks.done.map((t, i) => renderTaskCard(t, i))}
+              </Section>
+            )}
+          </>
         )}
       </div>
+    </div>
+  )
+}
+
+function Section({
+  label,
+  count,
+  color,
+  children,
+}: {
+  label: string
+  count: number
+  color: string
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="h-2 w-2 rounded-full" style={{ background: color }} />
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          {label} ({count})
+        </h4>
+      </div>
+      <div className="space-y-2">{children}</div>
     </div>
   )
 }
