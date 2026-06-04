@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/agentchatview.tsx","./src/components/applayout.tsx","./src/components/knowledgebasecenter.tsx","./src/components/knowledgebasedetail.tsx","./src/services/api.ts","./src/types/index.ts"],"version":"6.0.3"}

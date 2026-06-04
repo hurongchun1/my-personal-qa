@@ -125,6 +125,55 @@ npm run dev
 2. 启动后端服务：`cd backend && python main.py`
 3. 访问 http://localhost:8000/app
 
+## 更新日志
+
+### 2026-06-04 功能更新
+
+#### 后端（Backend）
+
+1. **修复文档列表接口路由**
+   - 将 `GET /documents` 改为 `GET /documents/list_documents`，解决前端 404 问题
+
+2. **新增解析方式支持接口**
+   - 新增 `GET /documents/supported-types?file_type=xxx`，根据文件类型返回可用的解析方式列表
+   - 返回格式：`[{value: "default", label: "默认分块"}, ...]`
+
+3. **数据库表结构更新**
+   - `documents` 表新增 `parse_method` 字段（TEXT，默认值 `'default'`），用于存储每个文档使用的解析方式
+
+4. **上传文档时设置默认解析方式**
+   - 上传文档时明确设置 `parse_method = 'default'`，确保数据库中有值
+
+5. **解析方式映射配置（`constant.py`）**
+   - `METHOD_MAP`：定义各文件类型支持的解析方法（pdf、html、htm、markdown、md、txt）
+   - `METHOD_LABEL`：解析方法中文名称映射（默认分块、Token 分割、语义分割、字符分割）
+
+#### 前端（Frontend）
+
+1. **修复 API 路由**
+   - `getDocuments` 调用 `/documents/list_documents` 而非 `/documents`
+
+2. **知识库创建弹窗优化**
+   - 创建知识库时，输入框 placeholder 从"例如：天翼云价格知识库"改为"知识库名称"
+
+3. **文档列表新增解析方式列**
+   - 每行显示解析方式下拉选择框，支持切换
+   - 下拉选项从后端 `supported-types` 接口动态获取，按文件类型显示不同选项
+
+4. **新增启动解析按钮**
+   - 每行右侧添加绿色"启动"按钮
+   - 点击后弹出参数配置弹窗，支持配置解析参数（分块大小、重叠大小等）
+   - 不同解析方式显示不同的参数输入框（语义分割无需参数）
+
+5. **动态解析方式选项获取**
+   - `fetchMethodOptions` 函数：根据文件类型从后端获取可用解析方式
+   - 缓存机制：已获取的文件类型选项不会重复请求
+   - 容错处理：API 失败或返回空时使用默认选项"默认分块"
+
+6. **类型定义更新**
+   - `BackendDocument` 接口新增 `parse_method` 字段
+   - 新增 `ParseMethodOption` 接口（value + label）
+
 ## 相关链接
 
 - [FastAPI 文档](https://fastapi.tiangolo.com/)

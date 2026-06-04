@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..common.exceptions import BusinessException
 from .dependencies import shutdown_event, startup_event
-from .routers import query, documents
+from .routers import query, documents, knowledges
 
 
 # 生命周期管理
@@ -98,6 +98,7 @@ app.add_middleware(
 # 注册路由
 app.include_router(query.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
+app.include_router(knowledges.router, prefix="/api")
 
 # 健康查询
 @app.get("/health")

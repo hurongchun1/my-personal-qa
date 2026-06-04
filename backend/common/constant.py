@@ -54,7 +54,14 @@ class Constant:
             ".docx": "word",
             ".doc": "word",
         }
-        
+        # 解析方法中文名称映射
+        METHOD_LABEL = {
+            "default":"默认分块",
+            "token":"Token 分割",
+            "semantic":"语义分割",
+            "character":"字符分割"
+        }
+
         # 解析器方法映射字典
         METHOD_MAP = {
             "pdf": {
@@ -81,5 +88,10 @@ class Constant:
                 "default": lambda loader, source, **kv: loader.parse(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
                 "token": lambda loader, source, **kv: loader.token_text_parser(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
                 "semantic": lambda loader, source, **kv: loader.Semantic_text_parser(source, kv.get("file_path"), kv.get("embedding"))
+            },
+            "txt": {
+                "default": lambda loader, source, **kv: loader.parse(source, kv.get("file_path"), kv.get("chunk_size", 512), kv.get("chunk_overlap", 50)),
+                "token": lambda loader, source, **kv: loader.token_text_parser(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
+                "character": lambda loader, source, **kv: loader.parse(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap"))
             }
         }

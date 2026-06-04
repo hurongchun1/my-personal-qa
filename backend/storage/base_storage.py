@@ -10,6 +10,9 @@ LOADER_MAP = Constant.Storage.LOADER_MAP
 # 解析器方法映射字典
 METHOD_MAP = Constant.Storage.METHOD_MAP
 
+# 解析方法中文名称映射
+METHOD_LABEL = Constant.Storage.METHOD_LABEL
+
 
 class VectorStorage(ABC):
     """向量库存储抽象基类"""

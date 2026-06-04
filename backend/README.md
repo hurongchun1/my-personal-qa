@@ -30,7 +30,8 @@ backend/
 │   └── routers/       # 路由模块
 │       ├── __init__.py
 │       ├── query.py       # 问答路由（简单问答、重写问答）
-│       └── documents.py   # 文档管理路由（上传、类型查询）
+│       ├── documents.py   # 文档管理路由（上传、列表、类型查询）
+│       └── knowledges.py  # 知识库管理路由（列表、创建）
 ├── common/            # 公共模块
 │   ├── __init__.py
 │   ├── constant.py    # 常量定义（Storage、ResultCode、ResultMsg）
@@ -133,7 +134,17 @@ python -m backend.main
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/documents/supported-types` | 获取支持的文件类型 |
-| POST | `/api/documents/upload` | 上传文档到知识库 |
+| GET | `/api/documents/list_documents?kb_id={id}` | 获取指定知识库的文档列表 |
+| POST | `/api/documents/upload` | 上传文档到知识库（需传 `file` + `kb_id`） |
+| POST | `/api/documents/delete_documents` | 批量删除文档（body: `{"ids": [1,2,3]}`） |
+
+### 知识库管理接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/knowledges/list_knowledges` | 获取知识库列表 |
+| POST | `/api/knowledges/add_knowledges` | 创建知识库（需传 `name`, `description`, `tags`） |
+| DELETE | `/api/knowledges/{kb_id}` | 删除知识库及其关联文档 |
 
 ### 系统接口
 
@@ -186,19 +197,32 @@ StorageFactory (工厂类)
 
 ### 4. 数据库层
 
-使用 SQLite 存储文档元数据：
+使用 SQLite 存储元数据，表结构见 `sql/ddl.sql`：
 
 ```sql
--- 文档表
-CREATE TABLE documents (
-    id TEXT PRIMARY KEY,
-    filename TEXT NOT NULL,
-    file_type TEXT NOT NULL,
-    file_path TEXT NOT NULL,
+-- 知识库表
+CREATE TABLE IF NOT EXISTS knowledge_bases(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    tags TEXT,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 文档表（关联知识库）
+CREATE TABLE IF NOT EXISTS documents(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_name TEXT NOT NULL,
+    file_path TEXT NOT NULL UNIQUE,
+    file_type TEXT,
     file_size INTEGER,
     chunk_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    status TEXT DEFAULT 'pending',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    kb_id INTEGER,
+    meta_data TEXT
 );
 ```
 
@@ -229,6 +253,20 @@ CREATE TABLE documents (
 - **python-multipart**：文件上传支持
 
 ## 开发进度
+
+### 已完成（2026-06-04 更新）
+
+- [x] **Bug 修复**：`list_knowledges` 接口缺少 `cursor.execute(sql)` 导致查询返回空列表
+- [x] **前端-后端 API 联调完成**：知识库 CRUD + 文档管理全部对接成功
+
+- [x] **知识库管理路由** (`routers/knowledges.py`)
+  - [x] `/knowledges/list_knowledges` - 知识库列表查询
+  - [x] `/knowledges/add_knowledges` - 创建知识库
+  - [x] 数据模型 `AddKnowledgeRequest` (`models.py`)
+
+- [x] **文档管理路由更新** (`routers/documents.py`)
+  - [x] `/documents?kb_id={id}` - 按知识库查询文档列表
+  - [x] `/documents/upload` - 上传文档支持 `kb_id` 参数（`Form` 方式）
 
 ### 已完成（2026-06-02）
 
@@ -275,7 +313,11 @@ CREATE TABLE documents (
     - [x] `/query/rewritten_chat` - 重写问答
   - [x] 文档管理路由 (`routers/documents.py`)
     - [x] `/documents/supported-types` - 支持类型查询
-    - [x] `/documents/upload` - 文档上传
+    - [x] `/documents?kb_id={id}` - 按知识库查询文档列表
+    - [x] `/documents/upload` - 文档上传（支持 `kb_id` 归属）
+  - [x] 知识库管理路由 (`routers/knowledges.py`)
+    - [x] `/knowledges/list_knowledges` - 知识库列表查询
+    - [x] `/knowledges/add_knowledges` - 创建知识库
   - [x] FastAPI 主应用 (`app.py`)
   - [x] 健康检查接口 (`/health`)
 
@@ -289,11 +331,17 @@ CREATE TABLE documents (
 
 #### 文档管理完善
 
-- [ ] 文档列表查询接口（GET `/api/documents`）
 - [ ] 文档详情查询接口（GET `/api/documents/{id}`）
 - [ ] 文档删除接口（DELETE `/api/documents/{id}`）
 - [ ] 上传文档时自动解析并建立向量索引
 - [ ] 文档重复上传检测
+
+#### 知识库管理完善
+
+- [ ] 知识库详情接口（GET `/api/knowledges/{id}`）
+- [ ] 知识库删除接口（DELETE `/api/knowledges/{id}`）
+- [ ] 知识库更新接口（PUT `/api/knowledges/{id}`）
+- [ ] 删除知识库时级联删除关联文档
 
 #### 问答功能完善
 

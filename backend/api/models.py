@@ -18,3 +18,14 @@ class RewrittenChatRequest(BaseModel):
 class MehodTypeRequest(BaseModel):
     '''根据类型获取对应文件解析方法'''
     file_type:str = Field()
+
+class AddKnowledgeRequest(BaseModel):
+    '''添加知识库'''
+    name:str = Field(...,description="知识库名称",min_length=1,max_length=100)
+    description:str = Field("",description="知识库描述",max_length=100)
+    tags:str = Field("",description="知识库标签",max_length=100)
+
+class DeleteDocumentsRequest(BaseModel):
+    '''批量删除文档'''
+    ids: list[int] = Field(...,description="文档ID列表",min_length=1)
+    

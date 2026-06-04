@@ -4,27 +4,32 @@
 '''
 from sqlite3 import Connection
 import uuid
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 import os
 
 from ..dependencies import get_db
+from ..models import DeleteDocumentsRequest
 from ...common.logger import logger
 from ...common.result_info import ResultInfo
 from ...common.exceptions import BusinessException
 from ...config import UPLOAD_DIR
-from ...storage.base_storage import LOADER_MAP
+from ...storage.base_storage import METHOD_MAP,METHOD_LABEL
 
 # 注册路由
 router = APIRouter(prefix="/documents",tags=["文档解析"])
 
 @router.get("/supported-types")
-async def supported_types():
+async def supported_types(file_type:str):
     '''获取项目中支持的文件类型'''
-    methods = [key for key in LOADER_MAP.keys()]
-    return ResultInfo.success(methods)
+    methods = list(METHOD_MAP.get(file_type,{}).keys())
+    # 拼接成value + label
+    data = [{"value": m, "label": METHOD_LABEL.get(m, m)} for m in methods]
 
-@router.get("")
-async def list_documents(db: Connection = Depends(get_db)):
+    return ResultInfo.success(data)
+
+
+@router.get("/list_documents")
+async def list_documents(kb_id : int ,db: Connection = Depends(get_db)):
     '''获取文档列表
     
     Args：
@@ -34,9 +39,9 @@ async def list_documents(db: Connection = Depends(get_db)):
         文档列表，包含id、文件名、文件类型、文件大小、状态、创建时间等
     '''
     try:
-        sql = "SELECT id, file_name, file_type, file_size, chunk_count, status, create_time FROM documents ORDER BY create_time DESC"
+        sql = "SELECT id, file_name, file_type, file_size, chunk_count, status, parse_method, create_time FROM documents WHERE kb_id= ?  ORDER BY create_time DESC"
         cursor = db.cursor()
-        cursor.execute(sql)
+        cursor.execute(sql,(kb_id,))
         documents = cursor.fetchall()
         
         # 转换为字典列表
@@ -49,17 +54,20 @@ async def list_documents(db: Connection = Depends(get_db)):
                 "file_size": doc[3],
                 "chunk_count": doc[4],
                 "status": doc[5],
-                "create_time": doc[6]
+                "parse_method": doc[6],
+                "create_time": doc[7]
             }
             doc_list.append(doc_dict)
         
         return ResultInfo.success(doc_list)
     except Exception as e:
-        raise BusinessException.database_error(f"获取文档列表失败: {str(e)}")
+        logger.error(f"获取文档列表失败：{str(e)}")
+        raise BusinessException.database_error(f"获取文档列表失败")
 
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
+    kb_id : int = Form(...),
     db: Connection = Depends(get_db)
 ):
     '''上传文档
@@ -93,12 +101,12 @@ async def upload_document(
 
         logger.info("文件保存成功，file_path=%s, size=%s", file_path, len(file_content))
     except Exception as e:
-        logger.exception("文件保存失败，filename=%s, file_path=%s", file.filename, file_path)
-        raise BusinessException.file_save_failed(f"文件保存失败: {str(e)}")
+        logger.error("文件保存失败，filename=%s, file_path=%s，失败原因=%s", file.filename, file_path, str(e))
+        raise BusinessException.file_save_failed("文件保存失败")
 
     # 将文件信息保存到数据库中
     try:
-        sql = "INSERT INTO documents(file_name, file_path, file_type, file_size, status) VALUES (?, ?, ?, ?, ?)"
+        sql = "INSERT INTO documents(file_name, file_path, file_type, file_size, status, parse_method, kb_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
 
         cursor = db.cursor()
         cursor.execute(sql, (
@@ -106,7 +114,9 @@ async def upload_document(
             file_path,
             file_ext,
             len(file_content),
-            "pending"
+            "pending",
+            "default",
+            kb_id
         ))
 
         document_id = cursor.lastrowid
@@ -115,9 +125,50 @@ async def upload_document(
         return ResultInfo.success(document_id)
 
     except Exception as e:
-        logger.exception("文档元数据保存失败，filename=%s, file_path=%s", file.filename, file_path)
+        logger.error("文档元数据保存失败，filename=%s, file_path=%s, 失败原因=%s", file.filename, file_path, str(e))
         db.rollback()
         # 保存失败时删除已上传的文件
         if os.path.exists(file_path):
             os.remove(file_path)
-        raise BusinessException.database_error(f"文件上传失败: {str(e)}")
+        raise BusinessException.database_error(f"文件上传失败")
+
+
+@router.post("/delete_documents")
+async def delete_document_by_id(
+    request: DeleteDocumentsRequest,
+    db: Connection = Depends(get_db)
+):
+    '''批量删除文档
+    
+    Args：
+        request：包含 ids 列表的请求体
+        db：数据库连接
+    
+    Returns：
+        成功或失败
+    '''
+    ids = request.ids
+    try:
+        # 1. 先查询要删除的文件路径
+        placeholders = ','.join(['?'] * len(ids))
+        query_sql = f"SELECT file_path FROM documents WHERE id IN ({placeholders})"
+        cursor = db.cursor()
+        cursor.execute(query_sql, ids)
+        rows = cursor.fetchall()
+        file_paths = [row[0] for row in rows]
+
+        # 2. 删除数据库记录
+        delete_sql = f"DELETE FROM documents WHERE id IN ({placeholders})"
+        cursor.execute(delete_sql, ids)
+        db.commit()
+        
+        # 3. 删除磁盘上的文件
+        for file_path in file_paths:
+            if file_path and os.path.exists(file_path):
+                os.remove(file_path)
+                logger.info("已删除文件: %s", file_path)
+
+        return ResultInfo.success("ok")
+    except Exception as e:
+        logger.error(f"批量删除文档失败：{str(e)}")
+        raise BusinessException.database_error("批量删除文档失败")
