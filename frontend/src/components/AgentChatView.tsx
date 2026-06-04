@@ -3,7 +3,7 @@ import {
   Wrench, HelpCircle, Send,
   Globe, Zap, Clock, FileText, Loader2, AlertTriangle,
 } from 'lucide-react'
-import { sendMessage, getSystemStatus } from '../services/api'
+import { sendMessage, sendRewrittenMessage, getSystemStatus } from '../services/api'
 import type { Message, SystemStatusData, LoadingState } from '../types'
 
 interface AgentChatViewProps {
@@ -74,7 +74,16 @@ export function AgentChatView({
 
     // 调后端 API
     try {
-      const answer = await sendMessage({ query: trimmed, k: 3 })
+      // 构造对话历史字符串
+      const conversationHistory = messages.map(msg => {
+        const role = msg.role === 'user' ? '用户' : '助手'
+        return `${role}: ${msg.content}`
+      }).join('\n')
+      
+      // 构造上下文信息（目前为空，可扩展）
+      const contextInfo = ''
+      
+      const answer = await sendRewrittenMessage(trimmed, conversationHistory, contextInfo, 3)
       const aiMsg: Message = {
         id: `a-${Date.now()}`,
         role: 'assistant',

@@ -172,3 +172,6 @@ async def delete_document_by_id(
     except Exception as e:
         logger.error(f"批量删除文档失败：{str(e)}")
         raise BusinessException.database_error("批量删除文档失败")
+
+
+async def parse_document(db=Depends(get_db)):

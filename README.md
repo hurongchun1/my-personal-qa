@@ -182,6 +182,205 @@ npm run dev
 - [Vite 文档](https://vitejs.dev/)
 - [DashScope 文档](https://dashscope.aliyun.com/)
 
+## 文档解析重构计划
+
+### 当前实现分析
+
+目前文档解析使用 `METHOD_MAP` 字典（位于 `backend/common/constant.py`），采用策略模式，但存在以下问题：
+
+1. **维护困难**：每个文件类型的解析方法都使用 lambda 函数，参数不一致
+2. **可读性差**：lambda 函数内部参数提取复杂，难以理解
+3. **扩展性差**：添加新的解析方式需要修改多个地方
+4. **参数不一致**：不同解析方法需要不同的参数，导致接口混乱
+
+### 当前架构
+
+```
+backend/
+├── common/
+│   └── constant.py          # METHOD_MAP 字典，包含所有解析策略
+├── parser/
+│   ├── base_loader.py       # 抽象基类，但接口不统一
+│   ├── pdf_loader.py        # PDF解析器
+│   ├── html_loader.py       # HTML解析器
+│   └── markdown_loader.py   # Markdown解析器
+└── api/
+    └── routers/
+        └── documents.py     # 文档API端点
+```
+
+### 重构目标
+
+将 METHOD_MAP 字典替换为更清晰的架构：
+
+1. **统一接口**：每个解析器实现统一的 `parse()` 方法
+2. **自描述解析器**：每个解析器知道自己的支持方法和参数
+3. **工厂模式**：通过 `LoaderFactory` 创建解析器，替代字典查找
+4. **动态参数**：前端可以动态获取每种解析方式需要的参数
+
+### 重构后架构
+
+#### 1. BaseLoader 抽象基类（需要修改）
+
+```python
+class BaseLoader:
+    @abstractmethod
+    def parse(self, file_path: str, method: str, **kwargs) -> List[str]:
+        """统一解析接口"""
+        pass
+    
+    @abstractmethod
+    def get_supported_methods(self) -> List[str]:
+        """返回该解析器支持的解析方法"""
+        pass
+    
+    def get_method_params(self, method: str) -> List[Dict[str, Any]]:
+        """返回指定方法需要的参数配置"""
+        return []
+```
+
+#### 2. 具体解析器（需要修改）
+
+每个解析器需要：
+- 实现 `parse()` 统一接口
+- 实现 `get_supported_methods()` 方法
+- 实现 `get_method_params()` 方法（可选）
+
+**PDFLoader 示例**：
+```python
+class PDFLoader(BaseLoader):
+    def parse(self, file_path: str, method: str, **kwargs) -> List[str]:
+        if method == "character":
+            return self.parse_by_character(file_path, **kwargs)
+        elif method == "token":
+            return self.parse_by_token(file_path, **kwargs)
+        elif method == "semantic":
+            return self.parse_by_semantic(file_path, **kwargs)
+    
+    def get_supported_methods(self) -> List[str]:
+        return ["character", "token", "semantic"]
+    
+    def get_method_params(self, method: str) -> List[Dict[str, Any]]:
+        if method == "character":
+            return [
+                {"name": "chunk_size", "type": "int", "default": 512, "label": "分块大小"},
+                {"name": "chunk_overlap", "type": "int", "default": 50, "label": "重叠大小"}
+            ]
+        # ... 其他方法参数
+```
+
+#### 3. LoaderFactory（需要新建）
+
+```python
+class LoaderFactory:
+    LOADER_MAP = {
+        "pdf": PDFLoader,
+        "html": HtmlLoader,
+        "htm": HtmlLoader,
+        "markdown": MarkdownLoader,
+        "md": MarkdownLoader,
+    }
+    
+    @classmethod
+    def create_loader(cls, file_type: str) -> BaseLoader:
+        loader_class = cls.LOADER_MAP.get(file_type)
+        if not loader_class:
+            raise ValueError(f"不支持的文件类型: {file_type}")
+        return loader_class()
+```
+
+#### 4. API 接口调整
+
+**后端 API**：
+```python
+@router.post("/parse/{doc_id}")
+async def parse_document(
+    doc_id: int,
+    method: str,
+    params: Dict[str, Any] = {},
+    db: Connection = Depends(get_db)
+):
+    # 1. 获取文档信息
+    # 2. 根据文件类型创建解析器
+    # 3. 调用解析器统一 parse() 方法
+    # 4. 保存解析结果
+```
+
+**前端 API**：
+```typescript
+export async function parseDocument(
+    docId: number, 
+    method: string, 
+    params: Record<string, any>
+): Promise<void> {
+    await http.post(`/documents/parse/${docId}`, { method, params })
+}
+```
+
+### 已完成内容
+
+1. **METHOD_MAP 字典实现** ✅
+   - 位置：`backend/common/constant.py`
+   - 功能：定义各文件类型支持的解析方法
+
+2. **基础解析器实现** ✅
+   - PDFLoader、HtmlLoader、MarkdownLoader
+   - 每个解析器实现了多种解析方法
+
+3. **前端文档列表组件** ✅
+   - 位置：`frontend/src/components/KnowledgeBaseDetail.tsx`
+   - 功能：显示文档列表，支持解析方式选择
+
+4. **后端支持类型 API** ✅
+   - 位置：`backend/api/routers/documents.py`
+   - 功能：返回各文件类型支持的解析方式
+
+### 未完成内容
+
+1. **前端解析 API 调用** ❌
+   - 位置：`frontend/src/components/KnowledgeBaseDetail.tsx` 第 187-189 行
+   - 状态：TODO，使用 setTimeout 模拟
+   - 需要：实现实际 API 调用
+
+2. **重构 BaseLoader 统一接口** ❌
+   - 当前：`parse()` 方法参数不一致
+   - 目标：统一为 `parse(file_path, method, **kwargs)`
+
+3. **创建 LoaderFactory** ❌
+   - 目标：替代 METHOD_MAP 字典查找
+
+4. **后端解析 API 实现** ❌
+   - 位置：`backend/api/routers/documents.py` 第 177 行
+   - 状态：只有空函数签名
+   - 需要：实现完整的文档解析逻辑
+
+5. **移除 METHOD_MAP 字典** ❌
+   - 目标：重构完成后删除或最小化使用
+
+### 重构步骤建议
+
+**第一阶段：统一接口（建议优先完成）**
+1. 修改 `BaseLoader` 添加统一接口方法
+2. 修改各解析器实现统一 `parse()` 方法
+3. 添加 `get_supported_methods()` 和 `get_method_params()` 方法
+
+**第二阶段：创建工厂和 API**
+1. 创建 `LoaderFactory` 类
+2. 实现后端解析 API 端点
+3. 前端调用实际 API 替换 TODO
+
+**第三阶段：清理和优化**
+1. 重构前端参数配置组件
+2. 移除或简化 METHOD_MAP
+3. 添加单元测试
+
+### 重构的好处
+
+1. **易于维护**：解析逻辑封装在各个解析器类中
+2. **易于扩展**：添加新解析类型只需创建新的解析器类
+3. **类型安全**：每个解析器明确自己的支持方法和参数
+4. **API 清晰**：统一的解析接口，参数明确
+
 ## License
 
 MIT

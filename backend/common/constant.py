@@ -90,7 +90,6 @@ class Constant:
                 "semantic": lambda loader, source, **kv: loader.Semantic_text_parser(source, kv.get("file_path"), kv.get("embedding"))
             },
             "txt": {
-                "default": lambda loader, source, **kv: loader.parse(source, kv.get("file_path"), kv.get("chunk_size", 512), kv.get("chunk_overlap", 50)),
                 "token": lambda loader, source, **kv: loader.token_text_parser(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
                 "character": lambda loader, source, **kv: loader.parse(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap"))
             }

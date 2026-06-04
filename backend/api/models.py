@@ -28,4 +28,6 @@ class AddKnowledgeRequest(BaseModel):
 class DeleteDocumentsRequest(BaseModel):
     '''批量删除文档'''
     ids: list[int] = Field(...,description="文档ID列表",min_length=1)
-    
+
+class ParseDocument(BaseModel):
+    pass

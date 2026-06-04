@@ -54,10 +54,10 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
       try {
         const methods = await getSupportedMethods(ft)
         // 如果API返回空数组，也使用默认选项
-        newOptions[ft] = methods.length > 0 ? methods : [{ value: 'default', label: '默认分块' }]
+        newOptions[ft] = methods.length > 0 ? methods : [{ value: 'character', label: '字符分割' }]
       } catch {
         // 该类型不支持时给默认选项
-        newOptions[ft] = [{ value: 'default', label: '默认分块' }]
+        newOptions[ft] = [{ value: 'character', label: '字符分割' }]
       }
     }
     if (Object.keys(newOptions).length > 0) {
@@ -76,10 +76,6 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
 
   // ── 每种解析方式需要的参数配置 ──
   const METHOD_PARAMS: Record<string, { key: string; label: string; type: string; placeholder: string; default: string }[]> = {
-    default: [
-      { key: 'chunk_size', label: '分块大小', type: 'number', placeholder: '默认 512', default: '512' },
-      { key: 'chunk_overlap', label: '重叠大小', type: 'number', placeholder: '默认 50', default: '50' },
-    ],
     token: [
       { key: 'chunk_size', label: '分块大小', type: 'number', placeholder: '默认 512', default: '512' },
       { key: 'chunk_overlap', label: '重叠大小', type: 'number', placeholder: '默认 50', default: '50' },
@@ -104,7 +100,7 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
       setParseMethods((prev) => {
         const next = { ...prev }
         docs.forEach((doc) => {
-          if (!next[doc.id]) next[doc.id] = doc.parse_method || 'default'
+          if (!next[doc.id]) next[doc.id] = doc.parse_method || 'character'
         })
         return next
       })
@@ -172,7 +168,7 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
 
   // ── 点击启动 → 打开参数配置弹窗 ──
   const handleParse = useCallback((docId: number, docName: string) => {
-    const method = parseMethods[docId] || 'default'
+    const method = parseMethods[docId] || 'character'
     const params = METHOD_PARAMS[method] || []
     // 重置参数为默认值
     const defaults: Record<string, string> = {}
@@ -184,7 +180,7 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
   // ── 弹窗确认 → 调用后端解析接口 ──
   const handleParseConfirm = useCallback(async () => {
     if (!parseModal.docId) return
-    const method = parseMethods[parseModal.docId] || 'default'
+    const method = parseMethods[parseModal.docId] || 'character'
     setParsingId(parseModal.docId)
     setParseModal({ open: false, docId: null, docName: '' })
     try {
@@ -357,17 +353,12 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
                   <FileText className="h-5 w-5 text-[#94a3b8] shrink-0" />
                   <span className="text-sm text-[#dce1fb] truncate">{doc.file_name}</span>
                 </div>
-                {/* 解析方式下拉选择 */}
-                <select
-                  value={parseMethods[doc.id] || 'default'}
-                  onChange={(e) => handleMethodChange(doc.id, e.target.value)}
-                  disabled={parsingId === doc.id}
-                  className="bg-[#1e293b]/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#dce1fb] outline-none focus:ring-2 focus:ring-[#4f46e5]/50 disabled:opacity-50 cursor-pointer"
-                >
-                  {(methodOptions[(doc.file_type || '').replace('.', '').toLowerCase()] || [{ value: 'default', label: '默认分块' }]).map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                {/* 解析方式只读显示 */}
+                <div className="bg-[#1e293b]/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#dce1fb]">
+                  {(methodOptions[(doc.file_type || '').replace('.', '').toLowerCase()] || [{ value: 'character', label: '字符分割' }]).find(
+                    (opt) => opt.value === (parseMethods[doc.id] || 'character')
+                  )?.label || '字符分割'}
+                </div>
                 <span className="text-sm text-[#94a3b8] uppercase">{doc.file_type || '—'}</span>
                 <span className="text-sm text-[#94a3b8]">{formatSize(doc.file_size)}</span>
                 <span className="text-sm text-[#94a3b8]">{doc.chunk_count}</span>
@@ -416,7 +407,7 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
               <div>
                 <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">解析方式</label>
                 <select
-                  value={parseMethods[parseModal.docId] || 'default'}
+                  value={parseMethods[parseModal.docId] || 'character'}
                   onChange={(e) => {
                     const method = e.target.value
                     handleMethodChange(parseModal.docId!, method)
@@ -428,14 +419,14 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
                   }}
                   className="w-full bg-[#1e293b]/50 border border-white/10 rounded-xl py-3 px-4 text-[#dce1fb] outline-none focus:ring-2 focus:ring-[#4f46e5]/50 cursor-pointer"
                 >
-                  {(methodOptions[parseModalFileType] || [{ value: 'default', label: '默认分块' }]).map((opt) => (
+                  {(methodOptions[parseModalFileType] || [{ value: 'character', label: '字符分割' }]).map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
               </div>
 
               {/* 动态参数输入框 */}
-              {(METHOD_PARAMS[parseMethods[parseModal.docId] || 'default'] || []).map((param) => (
+              {(METHOD_PARAMS[parseMethods[parseModal.docId] || 'character'] || []).map((param) => (
                 <div key={param.key}>
                   <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">{param.label}</label>
                   <input
