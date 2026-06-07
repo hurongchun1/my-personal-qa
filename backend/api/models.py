@@ -1,5 +1,4 @@
 
-
 from pydantic import BaseModel, Field
 
 
@@ -29,5 +28,10 @@ class DeleteDocumentsRequest(BaseModel):
     '''批量删除文档'''
     ids: list[int] = Field(...,description="文档ID列表",min_length=1)
 
-class ParseDocument(BaseModel):
-    pass
+class ParseDocumentRequest(BaseModel):
+    '''解析文档请求模型'''
+    document_id : int = Field(...,description="文档ID")
+    method: str = Field(...,description="解析方法名称")
+    chunk_size : int = Field(...,description="分块大小")
+    chunk_overlap : int = Field(...,description="分块重叠大小")
+    params : dict = Field(...,description="其他参数")  # pyright: ignore[reportMissingTypeArgument]

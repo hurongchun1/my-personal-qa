@@ -1,17 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Any, Dict, Tuple
 from langchain_core.documents.base import Document
-from ..common.constant import Constant
-
-
-# 解析器映射字典
-LOADER_MAP = Constant.Storage.LOADER_MAP
-
-# 解析器方法映射字典
-METHOD_MAP = Constant.Storage.METHOD_MAP
-
-# 解析方法中文名称映射
-METHOD_LABEL = Constant.Storage.METHOD_LABEL
+from ..parser.loader_factory import LoaderFactory
 
 
 class VectorStorage(ABC):
@@ -28,16 +18,12 @@ class VectorStorage(ABC):
         # 转换为小写，去除空格
         file_type = file_type.lower().strip()
         
-        if file_type not in LOADER_MAP:
-            raise ValueError(f"不支持的文件类型: {file_type}，支持的类型: {list(LOADER_MAP.keys())}")
-        
         # 查询parser_loader是否已经加载
         if file_type in self._parser_loaders:
             return self._parser_loaders[file_type]
         
-        # 加载 parser_loader 实例 这里需要实例化后才能调用
-        loader_class = LOADER_MAP[file_type]
-        loader = loader_class()
+        # 使用工厂类创建加载器
+        loader = LoaderFactory.create(file_type)
         self._parser_loaders[file_type] = loader
         return loader
     
@@ -47,9 +33,15 @@ class VectorStorage(ABC):
         return 文件类型 -> 方法列表
         """
         result = {}
-        for file_type, method in METHOD_MAP.items():
-            result[file_type] = list(method.keys())
-        
+        supported_types = LoaderFactory.get_supported_types()
+        for file_type in supported_types:
+            try:
+                methods_info = LoaderFactory.get_supported_methods(file_type)
+                method_names = [method.name for method in methods_info]
+                result[file_type] = method_names
+            except Exception:
+                # 如果获取失败，跳过该类型
+                continue
         return result
     
     def get_support_method(self, file_type: str) -> List[str]:
@@ -62,11 +54,11 @@ class VectorStorage(ABC):
         
         file_type = file_type.lower().strip()
         
-        # 检查是否支持该文件类型
-        if file_type not in METHOD_MAP:
-            raise ValueError(f"不支持的文件类型：{file_type}")
-        
-        return list(METHOD_MAP[file_type].keys())
+        try:
+            methods_info = LoaderFactory.get_supported_methods(file_type)
+            return [method.name for method in methods_info]
+        except Exception as e:
+            raise ValueError(f"不支持的文件类型：{file_type}，错误: {str(e)}")
     
     def _parse_document(self, file_type: str, method: str, source: str, **kv) -> List[str]:
         """根据文件类型，方法名，文件路径解析文档
@@ -78,21 +70,11 @@ class VectorStorage(ABC):
         
         file_type = file_type.lower().strip()
         
-        # 获取对应文件类型的方法字典
-        methods = METHOD_MAP.get(file_type)
-        
-        if methods is None:
-            raise ValueError(f"不支持的文件类型:{file_type},支持的类型：{list(METHOD_MAP.keys())}")
-        
-        # 检查提供的method是否在methods中
-        if method not in methods:
-            raise ValueError(f"不支持的解析方法：{method},仅支持的方法：{list(methods.keys())}")
-        
         # 获取文件解析器
         loader = self.get_loader(file_type)
         
         # 执行分块操作
-        return methods[method](loader, source, **kv)
+        return loader.parse(method, source, **kv)
     
     @abstractmethod
     def add_chunks(self, file_type: str, method: str, source: str, **kv) -> Tuple[Any, List[str]]:

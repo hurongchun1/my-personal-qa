@@ -3,7 +3,8 @@
 所有业务异常都使用这个类，通过错误码区分不同类型的错误
 """
 
-from typing import Optional, Any
+from email import message
+from typing import Optional, Any, Self
 from ..constant import Constant
 
 
@@ -90,4 +91,31 @@ class BusinessException(Exception):
             code=Constant.ResultCode.DATABASE_ERROR,
             message="数据库操作失败",
             detail=detail or "数据库操作出现错误"
+        )
+    
+    @classmethod
+    def document_parse_error(cls,detail : Optional[str] = None) -> Self:
+        '''文档解析失败'''
+        return cls(
+            code = Constant.ResultCode.DOCUMENT_PARSE_FAILED,
+            message = "文档解析失败",
+            detail = detail or "文档中方法不支持"
+        )
+    
+    @classmethod
+    def method_not_supported(cls,detail : Optional[str] = None) -> Self:
+        '''方法不支持'''
+        return cls(
+            code = Constant.ResultCode.BAD_REQUEST,
+            message = "方法不支持",
+            detail = detail or "文档中方法不支持"
+        )
+
+    @classmethod
+    def file_type_not_supported(cls,detail : Optional[str] = None) -> Self:
+        '''文件类型不支持'''
+        return cls(
+            code = Constant.ResultCode.BAD_REQUEST,
+            message = "文件类型不支持",
+            detail = detail or "文件类型不支持"
         )

@@ -1,8 +1,5 @@
 
 
-from ..parser import PDFLoader, HtmlLoader, MarkdownLoader
-
-
 class Constant:
 
     class ResultCode:
@@ -36,14 +33,6 @@ class Constant:
         ACTION_ERROR_MSG      = "操作异常..."
     
     class Storage:
-        # 解析器映射字典
-        LOADER_MAP = {
-            "htm": HtmlLoader,
-            "html": HtmlLoader,
-            "pdf": PDFLoader,
-            "md": MarkdownLoader,
-            "markdown": MarkdownLoader
-        }
         # 文件后缀名到文件类型的映射
         EXTENSION_MAP = {
             ".pdf": "pdf",
@@ -53,13 +42,6 @@ class Constant:
             ".markdown": "markdown",
             ".docx": "word",
             ".doc": "word",
-        }
-        # 解析方法中文名称映射
-        METHOD_LABEL = {
-            "default":"默认分块",
-            "token":"Token 分割",
-            "semantic":"语义分割",
-            "character":"字符分割"
         }
 
         # 解析器方法映射字典

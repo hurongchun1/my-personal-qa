@@ -2,18 +2,21 @@
 文档解析模块
 处理不同类型文档解析的API端点
 '''
+from typing import List
 from sqlite3 import Connection
 import uuid
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 import os
 
+from backend.parser.loader_factory import LoaderFactory
+from backend.parser.splitter.base_splitter import MethodInfo
+
 from ..dependencies import get_db
-from ..models import DeleteDocumentsRequest
+from ..models import DeleteDocumentsRequest, ParseDocumentRequest
 from ...common.logger import logger
 from ...common.result_info import ResultInfo
 from ...common.exceptions import BusinessException
 from ...config import UPLOAD_DIR
-from ...storage.base_storage import METHOD_MAP,METHOD_LABEL
 
 # 注册路由
 router = APIRouter(prefix="/documents",tags=["文档解析"])
@@ -21,10 +24,15 @@ router = APIRouter(prefix="/documents",tags=["文档解析"])
 @router.get("/supported-types")
 async def supported_types(file_type:str):
     '''获取项目中支持的文件类型'''
-    methods = list(METHOD_MAP.get(file_type,{}).keys())
-    # 拼接成value + label
-    data = [{"value": m, "label": METHOD_LABEL.get(m, m)} for m in methods]
-
+    methods: List[MethodInfo] = LoaderFactory.get_supported_methods(file_type)
+    data = []
+    for method in methods:
+        method_dict = {
+            "name" : method.name,
+            "label": method.label,
+            "params": [{"name" : param.name,"label":param.label,"type":param.type,"default":param.default,"required":param.required }for param in method.params]
+        }
+        data.append(method_dict)
     return ResultInfo.success(data)
 
 
@@ -174,4 +182,41 @@ async def delete_document_by_id(
         raise BusinessException.database_error("批量删除文档失败")
 
 
-async def parse_document(db=Depends(get_db)):
+async def parse_document(
+    request: ParseDocumentRequest,
+    db :Connection =Depends(get_db)):
+    '''解析文档'''
+    try:
+        # 从数据库获取文档信息
+        sql = "SELECT file_path,file_type FROM documents WHERE id = ?"
+        cursor = db.cursor()
+        cursor.execute(sql,(request.document_id,))
+        doc = cursor.fetchone()
+
+        if not doc:
+            raise BusinessException.not_found("文档不存在")
+        
+        file_path,file_type = doc
+
+        # 使用工厂类创建加载器
+        loader = LoaderFactory.create(file_type=file_type)
+
+        # 调用解析方法
+        loader.parse(
+            method=request.method,
+            source=file_path,
+            chunk_size = request.chunk_size,
+            chunk_overlap = request.chunk_overlap,
+            **request.params
+        )
+
+        # 更新文档状态
+        update_sql = "UPDATE documents SET status = 'parsed',parse_method = ? WHERE id = ? "
+        cursor.execute(update_sql,(request.method,request.document_id))
+        db.commit()
+
+        logger.info("文档解析成功，document_id=%s, method=%s",request.document_id,request.method)
+        return ResultInfo.success("ok")
+    except Exception as e:
+        logger.error(f"文档解析失败：{str(e)}")
+        raise BusinessException.database_error("文档解析失败")
