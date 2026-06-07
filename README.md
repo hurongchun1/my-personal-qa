@@ -198,15 +198,20 @@ npm run dev
 ```
 backend/
 ├── common/
-│   └── constant.py          # METHOD_MAP 字典，包含所有解析策略
+│   └── constant.py          # METHOD_MAP 字典（待移除）
 ├── parser/
-│   ├── base_loader.py       # 抽象基类，但接口不统一
+│   ├── splitter/
+│   │   └── base_splitter.py # 元数据类和策略接口
+│   ├── base_loader.py       # 抽象基类，统一 parse() 接口
 │   ├── pdf_loader.py        # PDF解析器
 │   ├── html_loader.py       # HTML解析器
-│   └── markdown_loader.py   # Markdown解析器
-└── api/
-    └── routers/
-        └── documents.py     # 文档API端点
+│   ├── markdown_loader.py   # Markdown解析器
+│   └── loader_factory.py    # 工厂类，创建解析器实例
+├── api/
+│   └── routers/
+│       └── documents.py     # 文档API端点
+└── storage/
+    └── base_storage.py      # 存储层，使用 LoaderFactory
 ```
 
 ### 重构目标
@@ -220,159 +225,220 @@ backend/
 
 ### 重构后架构
 
-#### 1. BaseLoader 抽象基类（需要修改）
+#### 1. 元数据类（已实现）
 
 ```python
-class BaseLoader:
+class ParamInfo:
+    """参数元信息，用于描述参数配置"""
+    name: str          # 参数名称
+    label: str         # 参数中文标签
+    type: str          # 参数类型（int、string、float）
+    default: Any       # 默认值
+    required: bool     # 是否必需
+
+class MethodInfo:
+    """方法元信息，用于描述解析方法"""
+    name: str          # 方法名称
+    label: str         # 方法中文标签
+    params: List[ParamInfo]  # 参数列表
+```
+
+#### 2. TextSplitter 策略接口（已实现）
+
+```python
+class TextSplitter(ABC):
+    """文本分割策略接口"""
     @abstractmethod
-    def parse(self, file_path: str, method: str, **kwargs) -> List[str]:
+    def split(self, text: str, **kwargs) -> List[str]: pass
+    
+    @abstractmethod
+    def get_name(self) -> str: pass
+    
+    @abstractmethod
+    def get_label(self) -> str: pass
+    
+    @abstractmethod
+    def get_params(self) -> List[ParamInfo]: pass
+```
+
+#### 3. BaseLoader 抽象基类（已实现）
+
+```python
+class BaseLoader(ABC):
+    def __init__(self):
+        self._splitter: Dict[str, TextSplitter] = {}
+        self._register_splitter()
+    
+    @abstractmethod
+    def _register_splitter(self): pass
+    
+    @abstractmethod
+    def load(self, file_path: str) -> str: pass
+    
+    def parse(self, method: str, source: str, **kwargs):
         """统一解析接口"""
-        pass
+        text = self.load(file_path=source)
+        if method not in self._splitter:
+            raise BusinessException.method_not_supported("解析方法不支持")
+        splitter = self._splitter[method]
+        return splitter.split(text, **kwargs)
     
-    @abstractmethod
-    def get_supported_methods(self) -> List[str]:
-        """返回该解析器支持的解析方法"""
-        pass
-    
-    def get_method_params(self, method: str) -> List[Dict[str, Any]]:
-        """返回指定方法需要的参数配置"""
-        return []
+    def get_supported_methods(self) -> List[MethodInfo]:
+        """返回支持的方法列表"""
+        result = []
+        for s in self._splitter.values():
+            info = MethodInfo(
+                name=s.get_name(),
+                label=s.get_label(),
+                params=s.get_params()
+            )
+            result.append(info)
+        return result
 ```
 
-#### 2. 具体解析器（需要修改）
-
-每个解析器需要：
-- 实现 `parse()` 统一接口
-- 实现 `get_supported_methods()` 方法
-- 实现 `get_method_params()` 方法（可选）
-
-**PDFLoader 示例**：
-```python
-class PDFLoader(BaseLoader):
-    def parse(self, file_path: str, method: str, **kwargs) -> List[str]:
-        if method == "character":
-            return self.parse_by_character(file_path, **kwargs)
-        elif method == "token":
-            return self.parse_by_token(file_path, **kwargs)
-        elif method == "semantic":
-            return self.parse_by_semantic(file_path, **kwargs)
-    
-    def get_supported_methods(self) -> List[str]:
-        return ["character", "token", "semantic"]
-    
-    def get_method_params(self, method: str) -> List[Dict[str, Any]]:
-        if method == "character":
-            return [
-                {"name": "chunk_size", "type": "int", "default": 512, "label": "分块大小"},
-                {"name": "chunk_overlap", "type": "int", "default": 50, "label": "重叠大小"}
-            ]
-        # ... 其他方法参数
-```
-
-#### 3. LoaderFactory（需要新建）
+#### 4. LoaderFactory 工厂类（已实现）
 
 ```python
 class LoaderFactory:
-    LOADER_MAP = {
+    _loaders = {
         "pdf": PDFLoader,
-        "html": HtmlLoader,
-        "htm": HtmlLoader,
         "markdown": MarkdownLoader,
-        "md": MarkdownLoader,
+        "html": HtmlLoader,
+        "htm": HtmlLoader
     }
     
     @classmethod
-    def create_loader(cls, file_type: str) -> BaseLoader:
-        loader_class = cls.LOADER_MAP.get(file_type)
-        if not loader_class:
-            raise ValueError(f"不支持的文件类型: {file_type}")
+    def create(cls, file_type: str) -> BaseLoader:
+        """根据文件类型创建解析器实例"""
+        if file_type.lower() not in cls._loaders:
+            raise BusinessException.file_type_not_supported("文件类型不支持")
+        loader_class = cls._loaders[file_type.lower()]
         return loader_class()
+    
+    @classmethod
+    def get_supported_methods(cls, file_type: str):
+        """获取文件类型支持的方法"""
+        loader = cls.create(file_type)
+        return loader.get_supported_methods()
+    
+    @classmethod
+    def get_supported_types(cls):
+        """获取支持的文件类型"""
+        return list(cls._loaders.keys())
 ```
 
-#### 4. API 接口调整
+#### 5. API 接口（已实现）
 
 **后端 API**：
 ```python
-@router.post("/parse/{doc_id}")
-async def parse_document(
-    doc_id: int,
-    method: str,
-    params: Dict[str, Any] = {},
-    db: Connection = Depends(get_db)
-):
+@router.get("/supported-types")
+async def supported_types(file_type: str):
+    """获取文件类型支持的解析方法"""
+    methods = LoaderFactory.get_supported_methods(file_type)
+    # 转换为前端需要的格式
+    return ResultInfo.success(data)
+
+@router.post("/parse")
+async def parse_document(request: ParseDocumentRequest, db: Connection = Depends(get_db)):
+    """执行文档解析"""
     # 1. 获取文档信息
     # 2. 根据文件类型创建解析器
     # 3. 调用解析器统一 parse() 方法
     # 4. 保存解析结果
 ```
 
-**前端 API**：
-```typescript
-export async function parseDocument(
-    docId: number, 
-    method: string, 
-    params: Record<string, any>
-): Promise<void> {
-    await http.post(`/documents/parse/${docId}`, { method, params })
-}
-```
-
 ### 已完成内容
 
-1. **METHOD_MAP 字典实现** ✅
-   - 位置：`backend/common/constant.py`
-   - 功能：定义各文件类型支持的解析方法
+#### 第一阶段：统一接口 ✅
 
-2. **基础解析器实现** ✅
-   - PDFLoader、HtmlLoader、MarkdownLoader
-   - 每个解析器实现了多种解析方法
+1. **元数据类实现** ✅
+   - 位置：`backend/parser/splitter/base_splitter.py`
+   - 功能：`ParamInfo` 和 `MethodInfo` 类，用于描述参数和方法
+   - 作用：前端可动态渲染 UI（输入框、下拉菜单）
 
-3. **前端文档列表组件** ✅
-   - 位置：`frontend/src/components/KnowledgeBaseDetail.tsx`
-   - 功能：显示文档列表，支持解析方式选择
+2. **TextSplitter 策略接口** ✅
+   - 位置：`backend/parser/splitter/base_splitter.py`
+   - 功能：抽象策略接口，定义 `split()` 方法
+   - 实现：`CharacterSplitter`、`TokenSplitter`、`SemanticSplitter` 具体策略
 
-4. **后端支持类型 API** ✅
+3. **BaseLoader 抽象基类重构** ✅
+   - 位置：`backend/parser/base_loader.py`
+   - 功能：统一 `parse()` 接口，集成策略模式
+   - 特性：`_splitter` 字典存储策略，`get_supported_methods()` 返回方法信息
+
+4. **具体解析器实现** ✅
+   - `PDFLoader`（`backend/parser/pdf_loader.py`）
+   - `HtmlLoader`（`backend/parser/html_loader.py`）
+   - `MarkdownLoader`（`backend/parser/markdown_loader.py`）
+   - 每个解析器实现 `_register_splitter()` 注册支持的策略
+
+5. **LoaderFactory 工厂类** ✅
+   - 位置：`backend/parser/loader_factory.py`
+   - 功能：根据文件类型创建对应的解析器实例
+   - 替代：原 `METHOD_MAP` 字典查找
+
+6. **后端 API 端点实现** ✅
+   - `GET /documents/supported-types`：返回文件类型支持的解析方法
+   - `POST /documents/parse`：执行文档解析
    - 位置：`backend/api/routers/documents.py`
-   - 功能：返回各文件类型支持的解析方式
+
+7. **请求/响应模型** ✅
+   - `ParseDocumentRequest`：解析请求模型
+   - 位置：`backend/api/models.py`
+
+8. **存储层更新** ✅
+   - 更新 `backend/storage/base_storage.py` 使用 `LoaderFactory`
+   - 移除对 `METHOD_MAP`、`METHOD_LABEL` 的依赖
+
+9. **文档更新** ✅
+   - 位置：`backend/parser/README.md`
+   - 内容：完整架构说明、类图、调用流程、API 示例
 
 ### 未完成内容
+
+#### 第二阶段：前端集成
 
 1. **前端解析 API 调用** ❌
    - 位置：`frontend/src/components/KnowledgeBaseDetail.tsx` 第 187-189 行
    - 状态：TODO，使用 setTimeout 模拟
    - 需要：实现实际 API 调用
 
-2. **重构 BaseLoader 统一接口** ❌
-   - 当前：`parse()` 方法参数不一致
-   - 目标：统一为 `parse(file_path, method, **kwargs)`
+2. **前端参数配置组件** ❌
+   - 需要：根据 `MethodInfo` 动态渲染参数输入框
+   - 目标：支持不同类型参数（int、string、float）
 
-3. **创建 LoaderFactory** ❌
-   - 目标：替代 METHOD_MAP 字典查找
+#### 第三阶段：清理和优化
 
-4. **后端解析 API 实现** ❌
-   - 位置：`backend/api/routers/documents.py` 第 177 行
-   - 状态：只有空函数签名
-   - 需要：实现完整的文档解析逻辑
-
-5. **移除 METHOD_MAP 字典** ❌
+3. **移除 METHOD_MAP 字典** ❌
+   - 位置：`backend/common/constant.py`
    - 目标：重构完成后删除或最小化使用
+
+4. **添加单元测试** ❌
+   - 需要：为 LoaderFactory、BaseLoader、具体解析器编写测试
+   - 目标：确保解析逻辑的正确性和稳定性
+
+5. **错误处理优化** ❌
+   - 需要：统一异常处理，提供友好的错误信息
+   - 目标：提升用户体验
 
 ### 重构步骤建议
 
-**第一阶段：统一接口（建议优先完成）**
-1. 修改 `BaseLoader` 添加统一接口方法
-2. 修改各解析器实现统一 `parse()` 方法
-3. 添加 `get_supported_methods()` 和 `get_method_params()` 方法
+**第一阶段：统一接口 ✅ 已完成**
+1. ✅ 修改 `BaseLoader` 添加统一接口方法
+2. ✅ 修改各解析器实现统一 `parse()` 方法
+3. ✅ 添加 `get_supported_methods()` 和 `get_method_params()` 方法
+4. ✅ 创建 `LoaderFactory` 类
+5. ✅ 实现后端解析 API 端点
 
-**第二阶段：创建工厂和 API**
-1. 创建 `LoaderFactory` 类
-2. 实现后端解析 API 端点
-3. 前端调用实际 API 替换 TODO
+**第二阶段：前端集成（待完成）**
+1. ❌ 前端调用实际 API 替换 TODO
+2. ❌ 实现动态参数配置组件
+3. ❌ 集成解析状态显示
 
-**第三阶段：清理和优化**
-1. 重构前端参数配置组件
-2. 移除或简化 METHOD_MAP
-3. 添加单元测试
+**第三阶段：清理和优化（待完成）**
+1. ❌ 移除或简化 METHOD_MAP
+2. ❌ 添加单元测试
+3. ❌ 优化错误处理
 
 ### 重构的好处
 
