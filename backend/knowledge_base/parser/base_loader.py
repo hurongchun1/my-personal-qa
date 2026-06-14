@@ -3,7 +3,7 @@
 from abc import abstractmethod,ABC
 from typing import Dict, List
 from backend.common.exceptions.business_exception import BusinessException
-from backend.parser.splitter.base_splitter import MethodInfo, TextSplitter
+from backend.knowledge_base.parser.splitter.base_splitter import MethodInfo, TextSplitter
 
 
 class BaseLoader(ABC):

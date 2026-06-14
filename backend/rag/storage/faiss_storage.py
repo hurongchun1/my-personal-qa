@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 from typing_extensions import override
 import uuid
 from langchain_community.vectorstores import FAISS
-from ..config import FAISS_PATH, dashscope_embedding
+from ...common.config import FAISS_PATH, dashscope_embedding
 from .base_storage import VectorStorage
 
 

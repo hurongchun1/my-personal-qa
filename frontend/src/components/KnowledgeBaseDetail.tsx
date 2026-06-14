@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   ArrowLeft, Upload, FileText, Trash2, Loader2, AlertTriangle, Database, Play, X,
 } from 'lucide-react'
-import { getDocuments, uploadDocument, deleteKnowledgeBase, deleteDocuments, getSupportedMethods } from '../services/api'
-import type { BackendDocument, KnowledgeBase, LoadingState, ParseMethodOption } from '../types'
+import { getDocuments, uploadDocument, deleteKnowledgeBase, deleteDocuments, getSupportedMethods, parseDocument } from '../services/api'
+import { useToast } from './Toast'
+import { useConfirm } from './ConfirmDialog'
+import type { BackendDocument, KnowledgeBase, LoadingState, ParseMethodOption, ParamInfo } from '../types'
 
 interface KnowledgeBaseDetailProps {
   kb: KnowledgeBase
@@ -24,6 +26,8 @@ function formatSize(bytes: number): string {
  * "进入知识库" 后才有上传入口
  */
 export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
+  const toast = useToast()
+  const confirm = useConfirm()
   const [documents, setDocuments] = useState<BackendDocument[]>([])
   const [state, setState] = useState<LoadingState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -39,6 +43,8 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
     chunk_size: '512',
     chunk_overlap: '50',
   })
+  // 弹窗中当前解析方式对应的参数列表（独立 state，不依赖 methodOptions 查询）
+  const [currentMethodParams, setCurrentMethodParams] = useState<ParamInfo[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ── 弹窗文档的文件类型 ──
@@ -49,15 +55,18 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
   // ── 加载文件类型对应的解析方式选项 ──
   const fetchMethodOptions = useCallback(async (docs: BackendDocument[]) => {
     const fileTypes = [...new Set(docs.map((d) => (d.file_type || '').replace('.', '').toLowerCase()).filter(Boolean))]
+    console.log('[KB Detail] fetchMethodOptions fileTypes:', fileTypes)
     const newOptions: Record<string, ParseMethodOption[]> = {}
     for (const ft of fileTypes) {
       try {
         const methods = await getSupportedMethods(ft)
+        console.log(`[KB Detail] getSupportedMethods(${ft}):`, methods)
         // 如果API返回空数组，也使用默认选项
-        newOptions[ft] = methods.length > 0 ? methods : [{ value: 'character', label: '字符分割' }]
-      } catch {
+        newOptions[ft] = methods.length > 0 ? methods : [{ name: 'character', label: '字符分割', params: [] }]
+      } catch (err) {
+        console.warn(`[KB Detail] getSupportedMethods(${ft}) failed:`, err)
         // 该类型不支持时给默认选项
-        newOptions[ft] = [{ value: 'character', label: '字符分割' }]
+        newOptions[ft] = [{ name: 'character', label: '字符分割', params: [] }]
       }
     }
     if (Object.keys(newOptions).length > 0) {
@@ -74,18 +83,14 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
     }
   }, [])
 
-  // ── 每种解析方式需要的参数配置 ──
-  const METHOD_PARAMS: Record<string, { key: string; label: string; type: string; placeholder: string; default: string }[]> = {
-    token: [
-      { key: 'chunk_size', label: '分块大小', type: 'number', placeholder: '默认 512', default: '512' },
-      { key: 'chunk_overlap', label: '重叠大小', type: 'number', placeholder: '默认 50', default: '50' },
-    ],
-    character: [
-      { key: 'chunk_size', label: '分块大小', type: 'number', placeholder: '默认 512', default: '512' },
-      { key: 'chunk_overlap', label: '重叠大小', type: 'number', placeholder: '默认 50', default: '50' },
-    ],
-    semantic: [], // 语义分割无需额外参数
-  }
+  // ── 从后端动态获取指定解析方式的参数列表 ──
+  const getMethodParams = useCallback((method: string): ParamInfo[] => {
+    for (const options of Object.values(methodOptions)) {
+      const found = options.find((opt) => opt.name === method)
+      if (found) return found.params || []
+    }
+    return []
+  }, [methodOptions])
 
   const fetchDocs = useCallback(async () => {
     setState('loading')
@@ -94,13 +99,17 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
       const docs = await getDocuments(kb.id)
       setDocuments(docs)
       setState('success')
-      // 加载各文件类型对应的解析方式选项
-      fetchMethodOptions(docs)
+      // 加载各文件类型对应的解析方式选项（必须 await，否则弹窗参数为空）
+      await fetchMethodOptions(docs)
       // 为新文档设置默认解析方式
       setParseMethods((prev) => {
         const next = { ...prev }
         docs.forEach((doc) => {
-          if (!next[doc.id]) next[doc.id] = doc.parse_method || 'character'
+          if (!next[doc.id]) {
+            // 将数据库中的"default"映射为前端的"character"
+            const method = doc.parse_method === 'default' ? 'character' : (doc.parse_method || 'character')
+            next[doc.id] = method
+          }
         })
         return next
       })
@@ -133,15 +142,20 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
 
   // ── 删除知识库 ──
   const handleDelete = useCallback(async () => {
-    if (!window.confirm(`确定删除知识库「${kb.name}」吗？\n该操作会同时删除其下所有文档，且不可恢复。`)) return
+    const confirmed = await confirm({
+      title: '确认删除',
+      message: `确定删除知识库「${kb.name}」吗？该操作会同时删除其下所有文档，且不可恢复。`,
+      confirmText: '删除',
+    })
+    if (!confirmed) return
     try {
       await deleteKnowledgeBase(kb.id)
       onBack()
     } catch (err) {
       console.warn('[KB Detail] 删除失败', err)
-      alert('删除失败，请稍后重试')
+      toast('error', '删除失败，请稍后重试')
     }
-  }, [kb.id, kb.name, onBack])
+  }, [kb.id, kb.name, onBack, confirm, toast])
 
   // ── 切换单个选中 ──
   const toggleSelect = useCallback((id: number) => {
@@ -166,16 +180,53 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
     setParseMethods((prev) => ({ ...prev, [docId]: method }))
   }, [])
 
+  // ── 从 methodOptions 中查找指定方法的参数 ──
+  const findMethodParams = useCallback((method: string, ft: string): ParamInfo[] => {
+    const options = methodOptions[ft]
+    if (!options) return []
+    const found = options.find((opt) => opt.name === method)
+    return found?.params || []
+  }, [methodOptions])
+
   // ── 点击启动 → 打开参数配置弹窗 ──
-  const handleParse = useCallback((docId: number, docName: string) => {
+  const handleParse = useCallback(async (docId: number, docName: string) => {
     const method = parseMethods[docId] || 'character'
-    const params = METHOD_PARAMS[method] || []
-    // 重置参数为默认值
+
+    // 获取文件类型
+    const doc = documents.find((d) => d.id === docId)
+    const ft = (doc?.file_type || '').replace('.', '').toLowerCase()
+
+    console.log(`[KB Detail] handleParse: docId=${docId}, method=${method}, ft=${ft}`)
+    console.log(`[KB Detail] methodOptions[${ft}]:`, methodOptions[ft])
+
+    // 确保该文件类型的解析方法选项已加载
+    let optionsForType = methodOptions[ft]
+    if (ft && !optionsForType) {
+      try {
+        const methods = await getSupportedMethods(ft)
+        console.log(`[KB Detail] fetched optionsForType:`, methods)
+        optionsForType = methods.length > 0 ? methods : [{ name: 'character', label: '字符分割', params: [] } as ParseMethodOption]
+        setMethodOptions((prev) => ({ ...prev, [ft]: optionsForType! }))
+      } catch (err) {
+        console.warn(`[KB Detail] fetch optionsForType failed:`, err)
+        optionsForType = [{ name: 'character', label: '字符分割', params: [] } as ParseMethodOption]
+        setMethodOptions((prev) => ({ ...prev, [ft]: optionsForType! }))
+      }
+    }
+
+    // 直接从 optionsForType 中取参数（不依赖 state 更新）
+    const found = optionsForType?.find((opt) => opt.name === method)
+    const params = found?.params || []
+    console.log(`[KB Detail] found params:`, params)
+
+    // 同时设置 currentMethodParams、parseParams 和 parseModal
+    // React 18 会批量处理这些 state 更新，弹窗渲染时 currentMethodParams 已就绪
+    setCurrentMethodParams(params)
     const defaults: Record<string, string> = {}
-    params.forEach((p) => { defaults[p.key] = p.default })
+    params.forEach((p) => { defaults[p.name] = p.default })
     setParseParams(defaults)
     setParseModal({ open: true, docId, docName })
-  }, [parseMethods])
+  }, [parseMethods, documents, methodOptions])
 
   // ── 弹窗确认 → 调用后端解析接口 ──
   const handleParseConfirm = useCallback(async () => {
@@ -184,33 +235,62 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
     setParsingId(parseModal.docId)
     setParseModal({ open: false, docId: null, docName: '' })
     try {
-      // TODO: 调用后端解析接口，替换为实际 API
-      // await parseDocument(parseModal.docId, method, parseParams)
-      await new Promise((resolve) => setTimeout(resolve, 1500)) // 模拟请求
-      alert(`文档解析启动成功！\n解析方式：${method}\n参数：${JSON.stringify(parseParams)}`)
+      // 根据当前解析方式决定参数
+      const methodParams = findMethodParams(method, parseModalFileType)
+      const hasChunkParams = methodParams.some(p => p.name === 'chunk_size' || p.name === 'chunk_overlap')
+      
+      let chunkSize = 512
+      let chunkOverlap = 50
+      let restParams = { ...parseParams }
+      
+      // 只有方法需要这些参数时才使用
+      if (hasChunkParams) {
+        const { chunk_size, chunk_overlap, ...remainingParams } = parseParams
+        chunkSize = parseInt(chunk_size) || 512
+        chunkOverlap = parseInt(chunk_overlap) || 50
+        restParams = remainingParams
+      } else {
+        // 对于不需要chunk参数的解析方式（如语义解析），从parseParams中移除这些字段
+        const { chunk_size, chunk_overlap, ...remainingParams } = parseParams
+        restParams = remainingParams
+      }
+      
+      await parseDocument({
+        documentId: parseModal.docId,
+        method,
+        chunkSize,
+        chunkOverlap,
+        params: restParams,
+      })
+      toast('success', '文档解析启动成功！')
       await fetchDocs()
     } catch (err) {
       console.warn('[KB Detail] 启动解析失败', err)
-      alert('启动解析失败，请稍后重试')
+      toast('error', '启动解析失败，请稍后重试')
     } finally {
       setParsingId(null)
     }
-  }, [parseModal, parseMethods, parseParams, fetchDocs])
+  }, [parseModal, parseMethods, parseParams, findMethodParams, parseModalFileType, fetchDocs, toast])
 
   // ── 批量删除文档 ──
   const handleDeleteDocs = useCallback(async () => {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
-    if (!window.confirm(`确定删除选中的 ${ids.length} 个文档吗？`)) return
+    const confirmed = await confirm({
+      title: '确认删除',
+      message: `确定删除选中的 ${ids.length} 个文档吗？`,
+      confirmText: '删除',
+    })
+    if (!confirmed) return
     try {
       await deleteDocuments(ids)
       setSelectedIds(new Set())
       await fetchDocs()
     } catch (err) {
       console.warn('[KB Detail] 删除文档失败', err)
-      alert('删除失败，请稍后重试')
+      toast('error', '删除失败，请稍后重试')
     }
-  }, [selectedIds, fetchDocs])
+  }, [selectedIds, fetchDocs, confirm, toast])
 
   return (
     <div className="min-h-screen bg-[#020617] overflow-y-auto">
@@ -355,8 +435,8 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
                 </div>
                 {/* 解析方式只读显示 */}
                 <div className="bg-[#1e293b]/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#dce1fb]">
-                  {(methodOptions[(doc.file_type || '').replace('.', '').toLowerCase()] || [{ value: 'character', label: '字符分割' }]).find(
-                    (opt) => opt.value === (parseMethods[doc.id] || 'character')
+                  {(methodOptions[(doc.file_type || '').replace('.', '').toLowerCase()] || [{ name: 'character', label: '字符分割', params: [] }]).find(
+                    (opt) => opt.name === (parseMethods[doc.id] || 'character')
                   )?.label || '字符分割'}
                 </div>
                 <span className="text-sm text-[#94a3b8] uppercase">{doc.file_type || '—'}</span>
@@ -411,42 +491,35 @@ export function KnowledgeBaseDetail({ kb, onBack }: KnowledgeBaseDetailProps) {
                   onChange={(e) => {
                     const method = e.target.value
                     handleMethodChange(parseModal.docId!, method)
-                    // 切换方式时重置参数
-                    const params = METHOD_PARAMS[method] || []
+                    // 切换方式时同步更新 currentMethodParams
+                    const params = findMethodParams(method, parseModalFileType)
+                    setCurrentMethodParams(params)
+                    // 重置参数
                     const defaults: Record<string, string> = {}
-                    params.forEach((p) => { defaults[p.key] = p.default })
+                    params.forEach((p) => { defaults[p.name] = p.default })
                     setParseParams(defaults)
                   }}
                   className="w-full bg-[#1e293b]/50 border border-white/10 rounded-xl py-3 px-4 text-[#dce1fb] outline-none focus:ring-2 focus:ring-[#4f46e5]/50 cursor-pointer"
                 >
-                  {(methodOptions[parseModalFileType] || [{ value: 'character', label: '字符分割' }]).map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  {(methodOptions[parseModalFileType] || [{ name: 'character', label: '字符分割', params: [] }]).map((opt) => (
+                    <option key={opt.name} value={opt.name}>{opt.label}</option>
                   ))}
                 </select>
               </div>
 
-              {/* 动态参数输入框 */}
-              {(METHOD_PARAMS[parseMethods[parseModal.docId] || 'character'] || []).map((param) => (
-                <div key={param.key}>
+              {/* 动态参数输入框 — 从 currentMethodParams 动态渲染（独立 state，不依赖 methodOptions 查询） */}
+              {currentMethodParams.map((param) => (
+                <div key={param.name}>
                   <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">{param.label}</label>
                   <input
                     type={param.type}
-                    value={parseParams[param.key] || ''}
-                    onChange={(e) => setParseParams((prev) => ({ ...prev, [param.key]: e.target.value }))}
-                    placeholder={param.placeholder}
+                    value={parseParams[param.name] || ''}
+                    onChange={(e) => setParseParams((prev) => ({ ...prev, [param.name]: e.target.value }))}
+                    placeholder={`默认 ${param.default}`}
                     className="w-full bg-[#1e293b]/50 border border-white/10 rounded-xl py-3 px-4 text-[#dce1fb] placeholder:text-[#64748b] outline-none focus:ring-2 focus:ring-[#4f46e5]/50"
                   />
                 </div>
               ))}
-
-              {/* 语义分割提示 */}
-              {parseMethods[parseModal.docId] === 'semantic' && (
-                <div className="bg-[#4f46e5]/10 border border-[#4f46e5]/20 rounded-xl p-4">
-                  <p className="text-xs text-[#c3c0ff]">
-                    语义分割将使用内置的 Embedding 模型进行智能分块，无需额外参数配置。
-                  </p>
-                </div>
-              )}
             </div>
 
             <div className="flex justify-end gap-3 mt-8">

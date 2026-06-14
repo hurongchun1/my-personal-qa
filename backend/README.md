@@ -22,48 +22,66 @@
 
 ```
 backend/
-├── api/               # FastAPI API 模块
+├── api/                    # FastAPI API 模块
 │   ├── __init__.py
-│   ├── app.py         # FastAPI 主应用
-│   ├── models.py      # 数据模型定义
-│   ├── dependencies.py # 依赖项管理（RAGEngine 单例、数据库连接）
-│   └── routers/       # 路由模块
+│   ├── app.py              # FastAPI 主应用
+│   ├── models.py           # 数据模型定义
+│   ├── dependencies.py     # 依赖项管理（RAGEngine 单例、数据库连接）
+│   └── routers/            # 路由模块
 │       ├── __init__.py
-│       ├── query.py       # 问答路由（简单问答、重写问答）
-│       ├── documents.py   # 文档管理路由（上传、列表、类型查询）
-│       └── knowledges.py  # 知识库管理路由（列表、创建）
-├── common/            # 公共模块
+│       ├── query.py        # 问答路由（简单问答、重写问答）
+│       ├── documents.py    # 文档管理路由（上传、列表、类型查询）
+│       └── knowledges.py   # 知识库管理路由（列表、创建）
+├── rag/                    # RAG 核心模块
 │   ├── __init__.py
-│   ├── constant.py    # 常量定义（Storage、ResultCode、ResultMsg）
-│   ├── result_info.py # 统一响应格式
-│   └── exceptions/        # 异常类子包
-│       ├── __init__.py    # 统一导出
-│       └── rag_exceptions.py  # RAG 模块异常类
-├── database/          # 数据库模块
+│   ├── engine.py           # RAG 引擎核心类
+│   └── storage/            # 向量存储层
+│       ├── __init__.py
+│       ├── base_storage.py         # 向量库抽象基类
+│       ├── faiss_storage.py        # FAISS 向量存储
+│       ├── elasticsearch_storage.py # Elasticsearch 向量存储
+│       └── storage_factory.py      # 向量库工厂类
+├── knowledge_base/         # 知识库模块
 │   ├── __init__.py
-│   └── connection.py  # SQLite 数据库连接管理
-├── storage/           # 存储层
+│   ├── parser/             # 文档解析器
+│   │   ├── __init__.py
+│   │   ├── base_loader.py        # 解析器基类
+│   │   ├── loader_factory.py     # 加载器工厂类
+│   │   ├── pdf_loader.py         # PDF 解析
+│   │   ├── html_loader.py        # HTML 解析
+│   │   ├── markdown_loader.py    # Markdown 解析
+│   │   ├── txt_loader.py         # 文本文件解析
+│   │   └── splitter/             # 文本分割器
+│   │       ├── __init__.py
+│   │       ├── base_splitter.py      # 分割器基类
+│   │       ├── character_splitter.py # 字符分割器
+│   │       ├── semantic_splitter.py  # 语义分割器
+│   │       └── token_spliter.py      # Token 分割器
+│   ├── database/           # 数据库模块
+│   │   ├── __init__.py
+│   │   └── connection.py   # SQLite 数据库连接管理
+│   └── sql/                # SQL 文件
+│       └── ddl.sql         # 数据库建表语句
+├── qa/                     # 问答模块
 │   ├── __init__.py
-│   ├── base_storage.py       # 向量库抽象基类
-│   ├── faiss_storage.py      # FAISS 向量存储
-│   ├── elasticsearch_storage.py # Elasticsearch 向量存储
-│   └── storage_factory.py    # 向量库工厂类
-├── parser/            # 文档解析器
+│   ├── query_rewriter.py   # 问题改写模块（5种问题类型重写）
+│   └── web_search.py       # 联网搜索模块（待实现）
+├── common/                 # 公共模块
 │   ├── __init__.py
-│   ├── base_loader.py      # 解析器基类
-│   ├── pdf_loader.py       # PDF 解析
-│   ├── html_loader.py      # HTML 解析
-│   └── markdown_loader.py  # Markdown 解析
-├── sql/
-│   └── ddl.sql        # 数据库建表语句
-├── doc/               # 文档存放目录
-├── faiss/             # FAISS 向量索引
-├── tests/             # 测试模块
-├── config.py          # 配置文件（API Key、模型配置、数据库路径）
-├── main.py            # 主程序入口
-├── rag_engine.py      # RAG 引擎
-├── query_rewriter.py  # 问题重写器
-└── requirements.txt   # 依赖包
+│   ├── config.py           # 配置文件（API Key、模型配置、路径配置）
+│   ├── constant.py         # 常量定义（Storage、ResultCode、ResultMsg）
+│   ├── logger.py           # 日志模块
+│   ├── result_info.py      # 统一响应格式
+│   └── exceptions/         # 异常类子包
+│       ├── __init__.py
+│       └── business_exception.py  # 业务异常类
+├── doc/                    # 文档存放目录
+├── data/                   # 数据库文件目录
+├── faiss/                  # FAISS 向量索引
+├── uploads/                # 上传文件目录
+├── tests/                  # 测试模块
+├── main.py                 # 主程序入口
+└── requirements.txt        # 依赖包
 ```
 
 ## 快速开始
@@ -167,20 +185,33 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 相对导入层级规则（从当前文件往上数包层级）：
 
 ```
-backend/storage/xxx.py    → 用 .. 回到 backend
-backend/api/xxx.py        → 用 .. 回到 backend
-backend/api/routers/xxx.py → 用 ... 回到 backend
+backend/rag/xxx.py              → 用 .. 回到 backend
+backend/rag/storage/xxx.py      → 用 ... 回到 backend
+backend/knowledge_base/xxx.py   → 用 .. 回到 backend
+backend/knowledge_base/parser/xxx.py → 用 ... 回到 backend
+backend/qa/xxx.py               → 用 .. 回到 backend
+backend/api/xxx.py              → 用 .. 回到 backend
+backend/api/routers/xxx.py      → 用 ... 回到 backend
+backend/common/xxx.py           → 用 .. 回到 backend
 ```
+
+公共配置统一从 `backend.common.config` 导入。
 
 ### 2. 解析器架构
 
 采用策略模式，每种文件类型对应一个解析器类：
 
 ```
-BaseLoader (基类)
+knowledge_base/parser/
+├── BaseLoader (基类)
 ├── PDFLoader
 ├── HtmlLoader
-└── MarkdownLoader
+├── MarkdownLoader
+└── TxtLoader
+└── splitter/ (文本分割策略)
+    ├── CharacterSplitter
+    ├── SemanticSplitter
+    └── TokenSplitter
 ```
 
 ### 3. 向量库架构
@@ -188,16 +219,16 @@ BaseLoader (基类)
 采用**抽象工厂模式**，支持多种向量库：
 
 ```
-VectorStorage (抽象基类)
+rag/storage/
+├── VectorStorage (抽象基类)
 ├── FaissStorage (FAISS 实现)
-└── ElasticsearchStorage (Elasticsearch 实现)
-
-StorageFactory (工厂类)
+├── ElasticsearchStorage (Elasticsearch 实现)
+└── StorageFactory (工厂类)
 ```
 
 ### 4. 数据库层
 
-使用 SQLite 存储元数据，表结构见 `sql/ddl.sql`：
+使用 SQLite 存储元数据，表结构见 `knowledge_base/sql/ddl.sql`：
 
 ```sql
 -- 知识库表
@@ -253,6 +284,15 @@ CREATE TABLE IF NOT EXISTS documents(
 - **python-multipart**：文件上传支持
 
 ## 开发进度
+
+### 已完成（2026-06-14 更新）
+
+- [x] **项目结构重构**：按功能模块重新组织文件
+  - RAG核心模块 → `rag/`（engine、storage）
+  - 知识库模块 → `knowledge_base/`（parser、database、sql）
+  - 问答模块 → `qa/`（query_rewriter、web_search）
+  - 公共配置 → `common/config.py`
+  - 所有导入路径已更新并测试通过
 
 ### 已完成（2026-06-04 更新）
 
@@ -361,14 +401,14 @@ CREATE TABLE IF NOT EXISTS documents(
 
 ### 添加新的文件类型
 
-1. 在 `parser/` 下创建新的解析器类，继承 `BaseLoader`
+1. 在 `knowledge_base/parser/` 下创建新的解析器类，继承 `BaseLoader`
 2. 在 `common/constant.py` 的 `Constant.Storage` 中添加映射
 
 ### 添加新的向量库
 
-1. 在 `storage/` 下创建新的存储类，继承 `VectorStorage`
+1. 在 `rag/storage/` 下创建新的存储类，继承 `VectorStorage`
 2. 实现 `add_chunks()` 和 `search()` 方法
-3. 在 `storage/storage_factory.py` 的 `SUPPORTED_TYPES` 中添加映射
+3. 在 `rag/storage/storage_factory.py` 的 `SUPPORTED_TYPES` 中添加映射
 
 ## License
 

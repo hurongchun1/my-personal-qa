@@ -32,6 +32,6 @@ class ParseDocumentRequest(BaseModel):
     '''解析文档请求模型'''
     document_id : int = Field(...,description="文档ID")
     method: str = Field(...,description="解析方法名称")
-    chunk_size : int = Field(...,description="分块大小")
-    chunk_overlap : int = Field(...,description="分块重叠大小")
-    params : dict = Field(...,description="其他参数")  # pyright: ignore[reportMissingTypeArgument]
+    chunk_size : int = Field(512,description="分块大小")
+    chunk_overlap : int = Field(50,description="分块重叠大小")
+    params : dict = Field({},description="其他参数")  # pyright: ignore[reportMissingTypeArgument]

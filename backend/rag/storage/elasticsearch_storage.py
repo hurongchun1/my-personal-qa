@@ -1,7 +1,7 @@
 import os
 from typing import List, Any, Optional, Dict
 from uuid import uuid4
-from ..config import dashscope_embedding, ES_HOST, ES_INDEX_NAME
+from ...common.config import dashscope_embedding, ES_HOST, ES_INDEX_NAME
 from langchain_community.vectorstores import ElasticsearchStore
 from .base_storage import VectorStorage
 

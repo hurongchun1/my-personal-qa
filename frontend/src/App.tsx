@@ -3,6 +3,9 @@ import { AppLayout } from './components/AppLayout'
 import { AgentChatView } from './components/AgentChatView'
 import { KnowledgeBaseCenter } from './components/KnowledgeBaseCenter'
 import { KnowledgeBaseDetail } from './components/KnowledgeBaseDetail'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { ToastProvider } from './components/Toast'
+import { ConfirmProvider } from './components/ConfirmDialog'
 import type { ViewType, Message, SystemStatusData, KnowledgeBase } from './types'
 
 /**
@@ -67,15 +70,21 @@ function App() {
   }
 
   return (
-    <AppLayout
-      currentView={currentView}
-      onViewChange={(view) => {
-        setSelectedKB(null)
-        setCurrentView(view)
-      }}
-    >
-      {renderView()}
-    </AppLayout>
+    <ErrorBoundary>
+      <ToastProvider>
+        <ConfirmProvider>
+          <AppLayout
+            currentView={currentView}
+            onViewChange={(view) => {
+              setSelectedKB(null)
+              setCurrentView(view)
+            }}
+          >
+            {renderView()}
+          </AppLayout>
+        </ConfirmProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   )
 }
 

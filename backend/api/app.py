@@ -4,19 +4,15 @@ FastAPI 应用入口
 """
 
 from ..common.logger import logger
-import traceback
 import os
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.exceptions import RequestValidationError
+from fastapi import FastAPI,Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-
 from ..common.exceptions import BusinessException
 from .dependencies import shutdown_event, startup_event
 from .routers import query, documents, knowledges
-
 
 # 生命周期管理
 @asynccontextmanager
@@ -41,49 +37,6 @@ app = FastAPI(
     lifespan = lifespan # 传入生命周期管理
 )
 
-# 全局异常处理器 - 开发阶段显示详细错误信息
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """捕获所有未处理的异常，返回详细错误信息"""
-    error_detail = traceback.format_exc()
-    logger.error("未捕获的异常，请求路径：%s", request.url, exc_info=(type(exc), exc, exc.__traceback__))
-    return JSONResponse(
-        status_code=500,
-        content={
-            "code": 500,
-            "msg": str(exc),
-            "detail": error_detail
-        }
-    )
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """处理 HTTP 异常"""
-    logger.warning(f"HTTP 异常，异常信息：{exc.detail}，请求路径：{request.url}")
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"code": exc.status_code, "msg": exc.detail}
-    )
-
-# 统一业务异常处理器
-@app.exception_handler(RequestValidationError)
-async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
-    """处理请求参数校验异常"""
-    logger.warning("请求参数校验异常，异常信息：%s，请求路径：%s", exc.errors(), request.url)
-    return JSONResponse(
-        status_code=422,
-        content={"code": 422, "msg": "请求参数校验失败", "data": exc.errors()}
-    )
-
-@app.exception_handler(BusinessException)
-async def business_exception_handler(request: Request, exc: BusinessException):
-    """处理业务异常"""
-    logger.warning(f"业务异常，异常信息：{exc.message}，请求路径：{request.url}")
-    return JSONResponse(
-        status_code=exc.code,
-        content=exc.to_dict()
-    )
-
 
 
 # 配置中间件
@@ -99,6 +52,29 @@ app.add_middleware(
 app.include_router(query.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(knowledges.router, prefix="/api")
+
+# 注册异常处理器
+@app.exception_handler(BusinessException)
+async def handle_business_exception(request: Request, exc: BusinessException):
+    '''处理业务异常 只处理BusinessException 异常'''
+    logger.error("业务异常：%s", request.url, exc_info=(type(exc), exc, exc.__traceback__))
+    return JSONResponse(
+        status_code = 200, # 业务已知异常返回 200
+        content= exc.to_dict()
+    )
+
+@app.exception_handler(Exception)
+async def handle_global_exception(request: Request, exc: Exception):
+    '''处理全局异常 能处理所有异常'''
+    logger.error("未知异常：%s", request.url, exc_info=(type(exc), exc, exc.__traceback__))
+    return JSONResponse(
+        status_code= 500, # 未知异常返回 500
+        content = {
+            "code": 500,
+            "message": "服务器内部错误",
+            "data":str(exc)
+        }
+    )
 
 # 健康查询
 @app.get("/health")
@@ -127,7 +103,7 @@ async def system_status():
     # 获取文档数量
     document_count = 0
     try:
-        from ..database.connection import get_connection
+        from ..knowledge_base.database.connection import get_connection
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM documents")

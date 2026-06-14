@@ -55,9 +55,18 @@ export interface BackendDocument {
 }
 
 // ═══ 解析方式选项（对齐后端 supported-types 接口） ═══
-export interface ParseMethodOption {
-  value: string
+export interface ParamInfo {
+  name: string
   label: string
+  type: string
+  default: string
+  required: boolean
+}
+
+export interface ParseMethodOption {
+  name: string
+  label: string
+  params: ParamInfo[]
 }
 
 // ═══ 系统状态（对齐 GET /api/system/status） ═══

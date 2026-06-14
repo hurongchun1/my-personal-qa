@@ -4,7 +4,7 @@ from sqlite3 import Connection
 import os
 import sqlite3
 
-from ..config import DATABASE_PATH, DATABASE_DIR, SQL_PATH
+from ...common.config import DATABASE_PATH, DATABASE_DIR, SQL_PATH
 
 
 def get_connection():

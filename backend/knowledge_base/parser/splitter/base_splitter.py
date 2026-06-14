@@ -57,7 +57,7 @@ CharacterSplitter.split(text)：
 返回给前端：["第一块", "第二块", ...]
     '''
     @abstractmethod
-    def split(self,text) -> List[str]:
+    def split(self,text, **kwargs) -> List[str]:
         '''执行分割后的切片内容'''
         pass
 

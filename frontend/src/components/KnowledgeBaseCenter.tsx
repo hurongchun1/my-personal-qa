@@ -4,6 +4,8 @@ import {
   Loader2, AlertTriangle, X,
 } from 'lucide-react'
 import { getKnowledgeBases, createKnowledgeBase, deleteKnowledgeBase } from '../services/api'
+import { useToast } from './Toast'
+import { useConfirm } from './ConfirmDialog'
 import type { KnowledgeBase, LoadingState } from '../types'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -96,7 +98,7 @@ function CreateKBModal({
   if (!open) return null
 
   const handleSubmit = async () => {
-    if (!name.trim()) return
+    if (!name.trim() || !description.trim()) return
     setSubmitting(true)
     try {
       await onCreate(name.trim(), description.trim(), tagsInput.trim())
@@ -120,7 +122,7 @@ function CreateKBModal({
 
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">知识库名称 *</label>
+            <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">知识库名称 <span className="text-[#ef4444]">*</span></label>
             <input
               type="text"
               value={name}
@@ -132,7 +134,7 @@ function CreateKBModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">描述</label>
+            <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">描述 <span className="text-[#ef4444]">*</span></label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -163,7 +165,7 @@ function CreateKBModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!name.trim() || submitting}
+            disabled={!name.trim() || !description.trim() || submitting}
             className="px-5 py-2.5 rounded-xl bg-[#4f46e5] hover:bg-[#4338ca] text-white text-sm font-medium transition-all active:scale-95 disabled:opacity-40"
           >
             {submitting ? '创建中...' : '创建知识库'}
@@ -178,6 +180,8 @@ function CreateKBModal({
    KnowledgeBaseCenter — 主组件
    ═══════════════════════════════════════════════════════════════ */
 export function KnowledgeBaseCenter({ onEnterKB }: KnowledgeBaseCenterProps) {
+  const toast = useToast()
+  const confirm = useConfirm()
   const [searchQuery, setSearchQuery] = useState('')
   const [state, setState] = useState<LoadingState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -211,13 +215,18 @@ export function KnowledgeBaseCenter({ onEnterKB }: KnowledgeBaseCenterProps) {
 
   // ── 删除知识库 ──
   const handleDeleteKB = async (kb: KnowledgeBase) => {
-    if (!window.confirm(`确定删除知识库「${kb.name}」吗？\n该操作会同时删除其下所有文档，且不可恢复。`)) return
+    const confirmed = await confirm({
+      title: '确认删除',
+      message: `确定删除知识库「${kb.name}」吗？该操作会同时删除其下所有文档，且不可恢复。`,
+      confirmText: '删除',
+    })
+    if (!confirmed) return
     try {
       await deleteKnowledgeBase(kb.id)
       await loadData()
     } catch (err) {
       console.warn('[DeleteKB] 删除失败', err)
-      alert('删除失败，请稍后重试')
+      toast('error', '删除失败，请稍后重试')
     }
   }
 

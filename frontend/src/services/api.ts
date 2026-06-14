@@ -18,9 +18,19 @@ const http: AxiosInstance = axios.create({
    全局拦截器
    ═══════════════════════════════════════════════ */
 http.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // 后端 BusinessException 返回 HTTP 200 但 code !== 200，需视为错误
+    const body = response.data as ApiResponse
+    if (body && body.code !== undefined && body.code !== 200) {
+      const msg = body.msg || '请求失败'
+      console.warn('[API BizError]', msg, response.config?.url)
+      return Promise.reject(new Error(msg))
+    }
+    return response
+  },
   (error: AxiosError<ApiResponse>) => {
-    const msg = error.response?.data?.msg || error.message || '网络请求失败'
+    const body = error.response?.data as Record<string, any> | undefined
+    const msg = body?.msg || body?.message || error.message || '网络请求失败'
     console.warn('[API Error]', msg, error.config?.url)
     return Promise.reject(new Error(msg))
   },
@@ -84,6 +94,23 @@ export async function deleteDocuments(ids: number[]): Promise<string> {
 export async function getSupportedMethods(fileType: string): Promise<ParseMethodOption[]> {
   const { data } = await http.get<ApiResponse<ParseMethodOption[]>>('/documents/supported-types', {
     params: { file_type: fileType },
+  })
+  return data.data
+}
+
+export async function parseDocument(params: {
+  documentId: number
+  method: string
+  chunkSize: number
+  chunkOverlap: number
+  params: Record<string, any>
+}): Promise<string> {
+  const { data } = await http.post<ApiResponse<string>>('/documents/parse', {
+    document_id: params.documentId,
+    method: params.method,
+    chunk_size: params.chunkSize,
+    chunk_overlap: params.chunkOverlap,
+    params: params.params,
   })
   return data.data
 }

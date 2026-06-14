@@ -8,15 +8,15 @@ import uuid
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 import os
 
-from backend.parser.loader_factory import LoaderFactory
-from backend.parser.splitter.base_splitter import MethodInfo
+from backend.knowledge_base.parser.loader_factory import LoaderFactory
+from backend.knowledge_base.parser.splitter.base_splitter import MethodInfo
 
 from ..dependencies import get_db
 from ..models import DeleteDocumentsRequest, ParseDocumentRequest
 from ...common.logger import logger
 from ...common.result_info import ResultInfo
 from ...common.exceptions import BusinessException
-from ...config import UPLOAD_DIR
+from ...common.config import UPLOAD_DIR
 
 # 注册路由
 router = APIRouter(prefix="/documents",tags=["文档解析"])
@@ -181,7 +181,7 @@ async def delete_document_by_id(
         logger.error(f"批量删除文档失败：{str(e)}")
         raise BusinessException.database_error("批量删除文档失败")
 
-
+@router.post("/parse")
 async def parse_document(
     request: ParseDocumentRequest,
     db :Connection =Depends(get_db)):
@@ -201,18 +201,39 @@ async def parse_document(
         # 使用工厂类创建加载器
         loader = LoaderFactory.create(file_type=file_type)
 
+        # 根据解析方式构建参数
+        parse_kwargs = {}
+        
+        # 获取该解析方法的参数信息
+        supported_methods = loader.get_supported_methods()
+        method_info = next((m for m in supported_methods if m.name == request.method), None)
+        
+        if method_info:
+            # 检查该方法是否需要chunk_size和chunk_overlap参数
+            param_names = [p.name for p in method_info.params]
+            if 'chunk_size' in param_names:
+                parse_kwargs['chunk_size'] = request.chunk_size
+            if 'chunk_overlap' in param_names:
+                parse_kwargs['chunk_overlap'] = request.chunk_overlap
+            
+            # 添加其他参数
+            for param in method_info.params:
+                if param.name not in ['chunk_size', 'chunk_overlap'] and param.name in request.params:
+                    parse_kwargs[param.name] = request.params[param.name]
+        
+        logger.info(f"开始解析文档, 方法: {request.method}, 参数: {parse_kwargs}")
         # 调用解析方法
-        loader.parse(
+        chunks = loader.parse(
             method=request.method,
             source=file_path,
-            chunk_size = request.chunk_size,
-            chunk_overlap = request.chunk_overlap,
-            **request.params
+            **parse_kwargs
         )
+        chunk_count = len(chunks) if chunks else 0
+        logger.info(f"文档解析完成, 分块数量: {chunk_count}")
 
-        # 更新文档状态
-        update_sql = "UPDATE documents SET status = 'parsed',parse_method = ? WHERE id = ? "
-        cursor.execute(update_sql,(request.method,request.document_id))
+        # 更新文档状态和分块数量
+        update_sql = "UPDATE documents SET status = 'parsed', parse_method = ?, chunk_count = ? WHERE id = ? "
+        cursor.execute(update_sql,(request.method, chunk_count, request.document_id))
         db.commit()
 
         logger.info("文档解析成功，document_id=%s, method=%s",request.document_id,request.method)

@@ -9,8 +9,8 @@ from sqlite3 import Connection
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
 
-from ..rag_engine import RAGEngine
-from ..database.connection import get_connection, close_connection, init_db
+from ..rag.engine import RAGEngine
+from ..knowledge_base.database.connection import get_connection, close_connection, init_db
 from ..common.logger import logger
 from ..common.exceptions import BusinessException
 

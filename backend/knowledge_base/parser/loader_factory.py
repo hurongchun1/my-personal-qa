@@ -1,9 +1,11 @@
 
+
 from backend.common.exceptions.business_exception import BusinessException
-from backend.parser.base_loader import BaseLoader
-from backend.parser.html_loader import HtmlLoader
-from backend.parser.markdown_loader import MarkdownLoader
-from backend.parser.pdf_loader import PDFLoader
+from backend.knowledge_base.parser.base_loader import BaseLoader
+from backend.knowledge_base.parser.html_loader import HtmlLoader
+from backend.knowledge_base.parser.markdown_loader import MarkdownLoader
+from backend.knowledge_base.parser.pdf_loader import PDFLoader
+from backend.knowledge_base.parser.txt_loader import TxtLoader
 
 
 class LoaderFactory:
@@ -13,19 +15,23 @@ class LoaderFactory:
     _loaders = {
         "pdf": PDFLoader,
         "markdown": MarkdownLoader,
+        "md": MarkdownLoader,
         "html": HtmlLoader,
-        "htm": HtmlLoader
+        "htm": HtmlLoader,
+        "txt": TxtLoader
     }
 
     # 工厂创建方法
     @classmethod
     def create(cls,file_type:str) :
         '''根据文件类型创建出对应的类'''
-        if file_type.lower() not in cls._loaders:
+        # 去除前导点号和首尾空格（数据库存储格式为 ".txt"，注册表为 "txt"）
+        clean_type = file_type.lower().lstrip('.').strip()
+        if clean_type not in cls._loaders:
             raise BusinessException.file_type_not_supported("文件类型不支持")
         
         # 获取对应的loader，并返回
-        class_loader= cls._loaders[file_type.lower()]
+        class_loader= cls._loaders[clean_type]
         return class_loader() # 创建实例
 
     @classmethod

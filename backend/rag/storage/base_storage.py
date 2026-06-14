@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Any, Dict, Tuple
 from langchain_core.documents.base import Document
-from ..parser.loader_factory import LoaderFactory
+from ...knowledge_base.parser.loader_factory import LoaderFactory
 
 
 class VectorStorage(ABC):

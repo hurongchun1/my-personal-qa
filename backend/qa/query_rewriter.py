@@ -1,7 +1,7 @@
 
 
 import json
-from .config import LLM_MODEL
+from ..common.config import LLM_MODEL
 import dashscope
 
 

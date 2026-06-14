@@ -1,9 +1,8 @@
 # 语义理解分词方式
 
-from re import S
 from typing import List, override
 
-from backend.parser.splitter.base_splitter import ParamInfo, TextSplitter
+from backend.knowledge_base.parser.splitter.base_splitter import ParamInfo, TextSplitter
 from langchain_experimental.text_splitter import SemanticChunker
 
 
@@ -14,7 +13,7 @@ class SemanticSplitter(TextSplitter):
 
     @override
     def get_name(self) -> str :
-        return "Semantic"
+        return "semantic"
 
     @override
     def get_label(self) ->  str:
@@ -22,12 +21,10 @@ class SemanticSplitter(TextSplitter):
 
     @override
     def get_params(self) -> List[ParamInfo] :
-        return [
-            ParamInfo(name="embeddins",label="词向量模型",type="embeddings",default="",required = True)
-        ]
+        return []  # 语义分割无需额外参数
 
     @override
-    def split(self, text) -> List[str]:
+    def split(self, text, **kwargs) -> List[str]:
         '''语义解析的切片实现方法'''
         # 定义语义切割分词器
         splitter = SemanticChunker(

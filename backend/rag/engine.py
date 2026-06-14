@@ -1,6 +1,6 @@
 import dashscope
-from .config import LLM_MODEL, STORAGE_TYPE
-from .query_rewriter import QueryRewriter
+from ..common.config import LLM_MODEL, STORAGE_TYPE
+from ..qa.query_rewriter import QueryRewriter
 from .storage.storage_factory import StorageFactory
 
 

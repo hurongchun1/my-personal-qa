@@ -1,146 +1,161 @@
 """
-RAGEngine 集成测试
-测试检索问答功能
+RAGEngine 单元测试 (pytest风格)
 """
 
-import os
-import sys
+import pytest
+from unittest.mock import MagicMock, patch
 
-# 添加项目根目录到 Python 路径
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, PROJECT_ROOT)
-
-from rag_engine import RAGEngine
+from backend.rag_engine import RAGEngine
 
 
-def test_prompt_template():
-    """测试提示词模板生成"""
-    print("=" * 50)
-    print("测试 1: 提示词模板")
-    print("=" * 50)
-    
-    engine = RAGEngine()
-    
-    query = "考核办法有哪些？"
-    documents = "文档内容测试"
-    
-    prompt = engine._RAGEngine__prompt_template(query, documents)
-    
-    if query in prompt and documents in prompt:
-        print("[PASS] 提示词模板生成正确")
-        print(f"[INFO] 模板内容:\n{prompt}")
-    else:
-        print("[FAIL] 提示词模板生成失败")
-    
-    return prompt
+class TestRAGEngine:
+    """RAGEngine 测试类"""
 
+    @pytest.fixture
+    def mock_storage(self):
+        """模拟存储"""
+        return MagicMock()
 
-def test_simple_ask():
-    """测试简单问答功能"""
-    print("\n" + "=" * 50)
-    print("测试 2: 简单问答")
-    print("=" * 50)
-    
-    engine = RAGEngine()
-    
-    query = "考核办法"
-    print(f"[INFO] 测试问题: {query}")
-    
-    try:
-        answer = engine.simple_ask(query, k=3)
+    @pytest.fixture
+    def engine(self, mock_storage):
+        """创建RAGEngine实例"""
+        with patch('backend.rag_engine.StorageFactory.create', return_value=mock_storage):
+            with patch('backend.rag_engine.LLM_MODEL', 'test-model'):
+                engine = RAGEngine()
+                yield engine
+
+    def test_init(self, engine, mock_storage):
+        """测试初始化"""
+        assert engine is not None
+        assert engine.storage == mock_storage
+        assert hasattr(engine, '_query_rewriter')
+
+    def test_prompt_template(self, engine):
+        """测试提示词模板生成"""
+        query = "考核办法有哪些？"
+        documents = "文档内容测试"
         
-        if answer:
-            print(f"[PASS] 问答成功!")
-            print(f"[INFO] 答案: {answer[:100]}...")
-        else:
-            print(f"[FAIL] 返回空答案")
-    except Exception as e:
-        print(f"[FAIL] 问答失败: {e}")
-
-
-def test_rewritten_query_ask():
-    """测试重写问题问答功能"""
-    print("\n" + "=" * 50)
-    print("测试 3: 重写问题问答")
-    print("=" * 50)
-    
-    engine = RAGEngine()
-    
-    # 测试用例1：上下文依赖型问题
-    test_cases = [
-        {
-            "query": "还有其他的吗？",
-            "conversation_history": "用户：考核办法有哪些？\n助手：考核办法包括绩效考核、项目考核等。",
-            "context_info": "公司考核制度文档",
-            "description": "上下文依赖型"
-        },
-        {
-            "query": "哪个更好？",
-            "conversation_history": "用户：绩效考核和项目考核有什么区别？\n助手：绩效考核侧重个人表现，项目考核侧重项目成果。",
-            "context_info": "考核制度对比文档",
-            "description": "对比型"
-        },
-        {
-            "query": "它的适用范围是什么？",
-            "conversation_history": "用户：什么是绩效考核？\n助手：绩效考核是评估员工工作表现的制度。",
-            "context_info": "绩效考核制度文档",
-            "description": "模糊指代型"
-        },
-        {
-            "query": "考核办法有哪些，以及如何申请？",
-            "conversation_history": "",
-            "context_info": "公司管理制度文档",
-            "description": "多意图型"
-        },
-        {
-            "query": "难道没有处罚措施吗？",
-            "conversation_history": "用户：公司有什么奖励制度？\n助手：公司有绩效奖金、晋升机会等奖励。",
-            "context_info": "公司奖惩制度文档",
-            "description": "反问型"
-        }
-    ]
-    
-    for i, test_case in enumerate(test_cases, 1):
-        print(f"\n[INFO] 测试用例 {i}: {test_case['description']}")
-        print(f"[INFO] 原始问题: {test_case['query']}")
+        prompt = engine._RAGEngine__prompt_template(query, documents)
         
-        try:
+        assert query in prompt
+        assert documents in prompt
+        assert "知识库内容" in prompt
+        assert "问题" in prompt
+
+    def test_simple_ask(self, engine, mock_storage):
+        """测试简单问答功能"""
+        # 模拟搜索结果
+        mock_doc = MagicMock()
+        mock_doc.page_content = "测试文档内容"
+        mock_storage.search.return_value = [(mock_doc, 0.9)]
+        
+        # 模拟dashscope响应
+        mock_response = MagicMock()
+        mock_response.output.choices = [MagicMock()]
+        mock_response.output.choices[0].message.content = "测试答案"
+        
+        with patch('backend.rag_engine.dashscope.Generation.call', return_value=mock_response):
+            answer = engine.simple_ask("测试问题", k=3)
+            
+            assert answer == "测试答案"
+            mock_storage.search.assert_called_once_with("测试问题", k=3)
+
+    def test_simple_ask_no_results(self, engine, mock_storage):
+        """测试简单问答（无搜索结果）"""
+        mock_storage.search.return_value = []
+        
+        mock_response = MagicMock()
+        mock_response.output.choices = [MagicMock()]
+        mock_response.output.choices[0].message.content = "无答案"
+        
+        with patch('backend.rag_engine.dashscope.Generation.call', return_value=mock_response):
+            answer = engine.simple_ask("测试问题", k=3)
+            
+            assert answer == "无答案"
+            mock_storage.search.assert_called_once()
+
+    def test_rewritten_query_ask(self, engine, mock_storage):
+        """测试重写问题问答功能"""
+        # 模拟查询重写器
+        mock_rewriter = MagicMock()
+        mock_rewriter.auto_rewrite_and_execute.return_value = "重写后的问题"
+        engine._query_rewriter = mock_rewriter
+        
+        # 模拟搜索结果
+        mock_doc = MagicMock()
+        mock_doc.page_content = "测试文档内容"
+        mock_storage.search.return_value = [(mock_doc, 0.9)]
+        
+        # 模拟dashscope响应
+        mock_response = MagicMock()
+        mock_response.output.choices = [MagicMock()]
+        mock_response.output.choices[0].message.content = "重写问答答案"
+        
+        with patch('backend.rag_engine.dashscope.Generation.call', return_value=mock_response):
             answer = engine.rewritten_query_ask(
-                query=test_case['query'],
-                conversation_history=test_case['conversation_history'],
-                context_info=test_case['context_info'],
+                query="原始问题",
+                conversation_history="对话历史",
+                context_info="上下文信息",
                 k=3
             )
             
-            if answer:
-                print(f"[PASS] 重写问答成功!")
-                print(f"[INFO] 答案: {answer[:100]}...")
-            else:
-                print(f"[FAIL] 返回空答案")
-        except Exception as e:
-            print(f"[FAIL] 重写问答失败: {e}")
-    
-    print("\n[INFO] 重写问题问答测试完成")
+            assert answer == "重写问答答案"
+            mock_rewriter.auto_rewrite_and_execute.assert_called_once()
+            mock_storage.search.assert_called_once_with("重写后的问题", 3)
 
+    def test_rewritten_query_ask_with_list(self, engine, mock_storage):
+        """测试重写问题问答（返回列表）"""
+        # 模拟查询重写器返回列表
+        mock_rewriter = MagicMock()
+        mock_rewriter.auto_rewrite_and_execute.return_value = ["重写问题1", "重写问题2"]
+        engine._query_rewriter = mock_rewriter
+        
+        # 模拟搜索结果
+        mock_doc = MagicMock()
+        mock_doc.page_content = "测试文档内容"
+        mock_storage.search.return_value = [(mock_doc, 0.9)]
+        
+        # 模拟dashscope响应
+        mock_response = MagicMock()
+        mock_response.output.choices = [MagicMock()]
+        mock_response.output.choices[0].message.content = "列表重写问答答案"
+        
+        with patch('backend.rag_engine.dashscope.Generation.call', return_value=mock_response):
+            answer = engine.rewritten_query_ask(
+                query="原始问题",
+                conversation_history="对话历史",
+                context_info="上下文信息",
+                k=3
+            )
+            
+            assert answer == "列表重写问答答案"
+            mock_storage.search.assert_called_once_with("重写问题1", 3)
 
-def run_all_tests():
-    """运行所有测试"""
-    print("[START] RAGEngine 集成测试")
-    print("=" * 50)
-    
-    # 测试提示词模板
-    test_prompt_template()
-    
-    # 测试简单问答
-    test_simple_ask()
-    
-    # 测试重写问题问答
-    test_rewritten_query_ask()
-    
-    print("\n" + "=" * 50)
-    print("[PASS] 所有测试完成!")
-    print("=" * 50)
-
-
-if __name__ == "__main__":
-    run_all_tests()
+    def test_rewritten_query_ask_empty_list(self, engine, mock_storage):
+        """测试重写问题问答（返回空列表）"""
+        # 模拟查询重写器返回空列表
+        mock_rewriter = MagicMock()
+        mock_rewriter.auto_rewrite_and_execute.return_value = []
+        engine._query_rewriter = mock_rewriter
+        
+        # 模拟搜索结果
+        mock_doc = MagicMock()
+        mock_doc.page_content = "测试文档内容"
+        mock_storage.search.return_value = [(mock_doc, 0.9)]
+        
+        # 模拟dashscope响应
+        mock_response = MagicMock()
+        mock_response.output.choices = [MagicMock()]
+        mock_response.output.choices[0].message.content = "空列表重写问答答案"
+        
+        with patch('backend.rag_engine.dashscope.Generation.call', return_value=mock_response):
+            answer = engine.rewritten_query_ask(
+                query="原始问题",
+                conversation_history="对话历史",
+                context_info="上下文信息",
+                k=3
+            )
+            
+            assert answer == "空列表重写问答答案"
+            # 空列表时应该使用原始问题
+            mock_storage.search.assert_called_once_with("原始问题", 3)

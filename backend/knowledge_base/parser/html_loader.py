@@ -4,9 +4,10 @@ from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 from typing_extensions import override
 from langchain_experimental.text_splitter import SemanticChunker
 
-from backend.parser.splitter.character_splitter import CharacterSplitter
-from backend.parser.splitter.semantic_splitter import SemanticSplitter
-from backend.parser.splitter.token_spliter import TokenSplitter
+from backend.common.config import dashscope_embedding
+from backend.knowledge_base.parser.splitter.character_splitter import CharacterSplitter
+from backend.knowledge_base.parser.splitter.semantic_splitter import SemanticSplitter
+from backend.knowledge_base.parser.splitter.token_spliter import TokenSplitter
 from .base_loader import BaseLoader
 import requests
 from bs4 import BeautifulSoup
@@ -22,7 +23,7 @@ class HtmlLoader(BaseLoader):
     def _register_splitter(self):
         self._splitter = {
             "character": CharacterSplitter(chunk_size=512,chunk_overlap=20),
-            "semantic": SemanticSplitter(embeddings=None),
+            "semantic": SemanticSplitter(embeddings=dashscope_embedding),
             "token": TokenSplitter(chunk_size=512,chunk_overlap=20)
         }
 

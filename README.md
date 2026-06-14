@@ -127,6 +127,20 @@ npm run dev
 
 ## 更新日志
 
+### 2026-06-14 项目结构重构
+
+#### 后端（Backend）
+
+1. **文件结构调整**
+   - RAG核心模块 → `backend/rag/`（engine、storage）
+   - 知识库模块 → `backend/knowledge_base/`（parser、database、sql）
+   - 问答模块 → `backend/qa/`（query_rewriter、web_search）
+   - 公共配置 → `backend/common/config.py`
+
+2. **导入路径统一**
+   - 所有模块的导入路径已更新并测试通过
+   - 配置文件统一从 `backend.common.config` 导入
+
 ### 2026-06-04 功能更新
 
 #### 后端（Backend）

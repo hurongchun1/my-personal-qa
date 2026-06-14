@@ -43,36 +43,3 @@ class Constant:
             ".docx": "word",
             ".doc": "word",
         }
-
-        # 解析器方法映射字典
-        METHOD_MAP = {
-            "pdf": {
-                "default": lambda loader, source, **kv: loader.parse(source, kv.get("chunk_size", 512), kv.get("chunk_overlap", 50)),
-                "token": lambda loader, source, **kv: loader.token_text_parser(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
-                "semantic": lambda loader, source, **kv: loader.semantic_text_parser(source, kv.get("file_path"), kv.get("embedding"))
-            },
-            "html": {
-                "character": lambda loader, source, **kv: loader.parse(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
-                "semantic": lambda loader, source, **kv: loader.parse_by_semantic(source, kv.get("url"), kv.get("embedding")),
-                "default": lambda loader, source, **kv: loader.parse_by_html_splitter(source, kv.get("url"), kv.get("headers_to_split_on"))
-            },
-            "htm": {
-                "character": lambda loader, source, **kv: loader.parse(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
-                "semantic": lambda loader, source, **kv: loader.parse_by_semantic(source, kv.get("url"), kv.get("embedding")),
-                "default": lambda loader, source, **kv: loader.parse_by_html_splitter(source, kv.get("url"), kv.get("headers_to_split_on"))
-            },
-            "markdown": {
-                "default": lambda loader, source, **kv: loader.parse(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
-                "token": lambda loader, source, **kv: loader.token_text_parser(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
-                "semantic": lambda loader, source, **kv: loader.Semantic_text_parser(source, kv.get("file_path"), kv.get("embedding"))
-            },
-            "md": {
-                "default": lambda loader, source, **kv: loader.parse(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
-                "token": lambda loader, source, **kv: loader.token_text_parser(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
-                "semantic": lambda loader, source, **kv: loader.Semantic_text_parser(source, kv.get("file_path"), kv.get("embedding"))
-            },
-            "txt": {
-                "token": lambda loader, source, **kv: loader.token_text_parser(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap")),
-                "character": lambda loader, source, **kv: loader.parse(source, kv.get("file_path"), kv.get("chunk_size"), kv.get("chunk_overlap"))
-            }
-        }
