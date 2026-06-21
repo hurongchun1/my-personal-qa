@@ -1,6 +1,9 @@
 import dashscope
+
 from ..common.config import LLM_MODEL, STORAGE_TYPE
+from ..common.logger import logger
 from ..qa.query_rewriter import QueryRewriter
+from ..qa.web_search import get_web_search_instance
 from .storage.storage_factory import StorageFactory
 
 
@@ -79,3 +82,45 @@ class RAGEngine:
         )
 
         return response.output.choices[0].message.content
+
+
+    # 添加联网搜索方式
+    def web_search_ask(self,query : str,use_web:bool = True, k : int = 3):
+        '''联网搜索问答'''
+
+        context_parts = []
+
+        # 本地知识库检索
+        local_results = self.storage.search(query,k)
+
+        if local_results:
+            local_context = "\n".join([doc.page_content for doc,_ in local_results])
+            context_parts.append("**本地知识库**\n" + local_context)
+
+        # 联网搜索
+        if use_web:
+            try:
+                web_search = get_web_search_instance()
+                if web_search.is_available:
+                    web_context = web_search.get_context_for_query(query)
+                    if web_context:
+                        context_parts.append(f"【网络搜索】\n{web_context}")
+            except Exception as e:
+                logger.error(f"联网搜索失败: {e}")
+        
+        # 合并上下文 + 调用LLM
+        context = "\n\n".join(context_parts) if context_parts else "暂无相关信息"
+        prompt = self.__prompt_template(query,context)
+        messages = [
+            {"role":"user","content":prompt}
+        ]
+
+        response = dashscope.Generation.call(
+            model = LLM_MODEL,
+            messages = messages,
+            result_format = "message",
+            temperature = 0.7
+        )
+
+        return response.output.choices[0].message.content
+

@@ -7,7 +7,7 @@ from fastapi.routing import APIRouter
 from ...common.result_info import ResultInfo
 
 from ..dependencies import get_rag_engine
-from ..models import RewrittenChatRequest, SimpleChatRequest
+from ..models import RewrittenChatRequest, SimpleChatRequest, WebSearchChatRequest
 
 
 # 创建路由
@@ -57,3 +57,22 @@ async def rewritten_chat(
     except Exception :
         raise HTTPException(status_code=500,detail="服务器内部错误")
 
+
+@router.post("/web_search_chat")
+async def web_search_chat(
+    request: WebSearchChatRequest,
+    rag_engine = Depends(get_rag_engine)
+):
+    '''联网搜索问答接口'''
+    try:
+        answer = rag_engine.web_search_ask(
+            query = request.query,
+            use_web = request.use_web,
+            k = request.k
+        )
+        if not answer :
+            raise HTTPException(status_code=404,detail="未找到相关答案")
+        
+        return ResultInfo.success(answer).to_dict()
+    except Exception :
+        raise HTTPException(status_code=500,detail="服务器内部错误")

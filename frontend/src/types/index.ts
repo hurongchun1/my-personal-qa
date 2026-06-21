@@ -95,5 +95,12 @@ export interface ChatRequest {
   k?: number
 }
 
+// ═══ 联网搜索请求（对齐后端 WebSearchChatRequest） ═══
+export interface WebSearchChatRequest {
+  query: string
+  use_web: boolean
+  k?: number
+}
+
 // ═══ 全局 UI 状态 ═══
 export type LoadingState = 'idle' | 'loading' | 'success' | 'error'

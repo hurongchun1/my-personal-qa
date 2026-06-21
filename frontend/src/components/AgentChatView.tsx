@@ -2,8 +2,9 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Wrench, HelpCircle, Send,
   Globe, Zap, Clock, FileText, Loader2, AlertTriangle,
+  Search,
 } from 'lucide-react'
-import { sendMessage, sendRewrittenMessage, getSystemStatus } from '../services/api'
+import { sendMessage, sendRewrittenMessage, sendWebSearchMessage, getSystemStatus } from '../services/api'
 import type { Message, SystemStatusData, LoadingState } from '../types'
 
 interface AgentChatViewProps {
@@ -26,6 +27,7 @@ export function AgentChatView({
   const [isStreaming, setIsStreaming] = useState(false)
   const [statusState, setStatusState] = useState<LoadingState>('idle')
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [useWebSearch, setUseWebSearch] = useState(false)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -83,7 +85,13 @@ export function AgentChatView({
       // 构造上下文信息（目前为空，可扩展）
       const contextInfo = ''
       
-      const answer = await sendRewrittenMessage(trimmed, conversationHistory, contextInfo, 3)
+      let answer: string
+      if (useWebSearch) {
+        answer = await sendWebSearchMessage(trimmed, true, 3)
+      } else {
+        answer = await sendRewrittenMessage(trimmed, conversationHistory, contextInfo, 3)
+      }
+      
       const aiMsg: Message = {
         id: `a-${Date.now()}`,
         role: 'assistant',
@@ -307,6 +315,14 @@ export function AgentChatView({
             style={{ boxShadow: '0 25px 50px rgba(0,0,0,0.4)' }}
           >
             <div className="flex items-center gap-3 pr-4 border-r border-white/10 shrink-0">
+              {/* 联网搜索开关 */}
+              <button
+                onClick={() => setUseWebSearch(!useWebSearch)}
+                className={`transition-colors ${useWebSearch ? 'text-[#4ade80]' : 'text-[#94a3b8] hover:text-[#c3c0ff]'}`}
+                title={useWebSearch ? '联网搜索已开启' : '联网搜索已关闭'}
+              >
+                <Search className="h-5 w-5" />
+              </button>
               <button className="text-[#94a3b8] hover:text-[#c3c0ff] transition-colors" title="工具">
                 <Wrench className="h-5 w-5" />
               </button>
@@ -320,7 +336,7 @@ export function AgentChatView({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="输入问题或指令..."
+              placeholder={useWebSearch ? '输入问题，将联网搜索...' : '输入问题或指令...'}
               className="flex-1 bg-transparent border-none focus:ring-0 text-[#dce1fb] placeholder-[#64748b] text-base outline-none"
               disabled={isStreaming}
             />
@@ -339,7 +355,7 @@ export function AgentChatView({
           </div>
 
           <p className="text-center mt-3 text-[10px] text-[#64748b]/60 uppercase tracking-widest font-semibold">
-            Hermes AI Engine v2.4.1 • RAG Backend Connected
+            Hermes AI Engine v2.5.0 • {useWebSearch ? 'Web Search Enabled' : 'RAG Backend Connected'}
           </p>
         </div>
       </div>

@@ -3,7 +3,7 @@
  * 基于 Axios，对齐后端 FastAPI 接口规范
  */
 import axios, { type AxiosInstance, type AxiosError } from 'axios'
-import type { ApiResponse, BackendDocument, KnowledgeBase, SystemStatusData, ChatRequest, ParseMethodOption } from '../types'
+import type { ApiResponse, BackendDocument, KnowledgeBase, SystemStatusData, ChatRequest, WebSearchChatRequest, ParseMethodOption } from '../types'
 
 /* ═══════════════════════════════════════════════
    Axios 实例
@@ -139,6 +139,22 @@ export async function sendRewrittenMessage(
     query,
     conversation_history: conversationHistory,
     context_info: contextInfo,
+    k,
+  })
+  return data.data
+}
+
+/**
+ * 联网搜索问答（知识库 + 网络搜索）
+ */
+export async function sendWebSearchMessage(
+  query: string,
+  useWeb: boolean = true,
+  k = 3,
+): Promise<string> {
+  const { data } = await http.post<ApiResponse<string>>('/query/web_search_chat', {
+    query,
+    use_web: useWeb,
     k,
   })
   return data.data

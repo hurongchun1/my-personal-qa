@@ -1,4 +1,5 @@
 
+
 from pydantic import BaseModel, Field
 
 
@@ -35,3 +36,9 @@ class ParseDocumentRequest(BaseModel):
     chunk_size : int = Field(512,description="分块大小")
     chunk_overlap : int = Field(50,description="分块重叠大小")
     params : dict = Field({},description="其他参数")  # pyright: ignore[reportMissingTypeArgument]
+
+class WebSearchChatRequest(BaseModel):
+    '''Web服务查询请求模型'''
+    query: str = Field(...,description="问题",min_length=1)
+    use_web : bool = Field(True,description="是否使用联网搜索")
+    k: int = Field(3,description="检索文档的数量",ge=3,le=10)

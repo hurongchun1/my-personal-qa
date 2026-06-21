@@ -25,6 +25,13 @@ class FaissStorage(VectorStorage):
         
         # 没有缓存，需要加载向量库
         if os.path.exists(FAISS_PATH):
+            # 检查目录中是否有索引文件
+            index_file = os.path.join(FAISS_PATH, "index.faiss")
+            if not os.path.exists(index_file):
+                print(f"FAISS索引文件不存在: {index_file}，将创建新的向量库")
+                self._vector_store = None
+                return self._vector_store
+                
             try:
                 self._vector_store = FAISS.load_local(
                     FAISS_PATH, 

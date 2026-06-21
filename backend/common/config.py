@@ -51,3 +51,13 @@ DATABASE_DIR = os.path.join(BASE_DIR, "data")
 DATABASE_PATH = os.path.join(DATABASE_DIR, "database.db")
 SQL_DIR = os.path.join(BASE_DIR, "knowledge_base", "sql")
 SQL_PATH = os.path.join(SQL_DIR, "ddl.sql")
+
+
+# ==== 联网搜索配置 FireCrawl ======
+FIRECRAWL_API_URL = os.getenv("FIRECRAWL_API_URL","http://localhost:3002")
+FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY","test-api-key")
+FIRECRAWL_TIMEOUT = int(os.getenv("FIRECRAWL_TIMEOUT", 10))
+
+# ==== Serper 搜索配置 ======
+SERPER_API_KEY = os.getenv("SERPER_API_KEY", "58cf473022d86641f031ab2fd31384de5729a323")
+SERPER_API_URL = "https://google.serper.dev/search"
