@@ -557,32 +557,28 @@ async def parse_document(request: ParseDocumentRequest, db: Connection = Depends
    - 位置：`backend/parser/README.md`
    - 内容：完整架构说明、类图、调用流程、API 示例
 
-### 未完成内容
+### 已完成内容
 
 #### 第二阶段：前端集成
 
-1. **前端解析 API 调用** ❌
-   - 位置：`frontend/src/components/KnowledgeBaseDetail.tsx` 第 187-189 行
-   - 状态：TODO，使用 setTimeout 模拟
-   - 需要：实现实际 API 调用
+1. **前端解析 API 调用** ✅
+   - 位置：`frontend/src/components/KnowledgeBaseDetail.tsx` 第 258 行
+   - 状态：已实现，调用 `parseDocument` API
 
-2. **前端参数配置组件** ❌
-   - 需要：根据 `MethodInfo` 动态渲染参数输入框
-   - 目标：支持不同类型参数（int、string、float）
+2. **前端参数配置组件** ✅
+   - 状态：已实现，解析参数配置弹窗
+   - 支持：动态渲染参数输入框（int、string、float）
 
 #### 第三阶段：清理和优化
 
-3. **移除 METHOD_MAP 字典** ❌
-   - 位置：`backend/common/constant.py`
-   - 目标：重构完成后删除或最小化使用
+3. **移除 METHOD_MAP 字典** ✅
+   - 状态：代码中不存在，已移除
 
-4. **添加单元测试** ❌
-   - 需要：为 LoaderFactory、BaseLoader、具体解析器编写测试
-   - 目标：确保解析逻辑的正确性和稳定性
+4. **添加单元测试** ✅
+   - 状态：已有 test_loader_factory.py 等单元测试
 
-5. **错误处理优化** ❌
-   - 需要：统一异常处理，提供友好的错误信息
-   - 目标：提升用户体验
+5. **错误处理优化** ✅
+   - 状态：已实现 BusinessException 和全局异常处理
 
 ### 重构步骤建议
 
@@ -593,15 +589,15 @@ async def parse_document(request: ParseDocumentRequest, db: Connection = Depends
 4. ✅ 创建 `LoaderFactory` 类
 5. ✅ 实现后端解析 API 端点
 
-**第二阶段：前端集成（待完成）**
-1. ❌ 前端调用实际 API 替换 TODO
-2. ❌ 实现动态参数配置组件
-3. ❌ 集成解析状态显示
+**第二阶段：前端集成（已完成）**
+1. ✅ 前端调用实际 API 替换 TODO
+2. ✅ 实现动态参数配置组件
+3. ✅ 集成解析状态显示
 
-**第三阶段：清理和优化（待完成）**
-1. ❌ 移除或简化 METHOD_MAP
-2. ❌ 添加单元测试
-3. ❌ 优化错误处理
+**第三阶段：清理和优化（已完成）**
+1. ✅ 移除或简化 METHOD_MAP（代码中不存在）
+2. ✅ 添加单元测试（已有 test_loader_factory.py 等）
+3. ✅ 优化错误处理（已实现 BusinessException 和全局异常处理）
 
 ### 重构的好处
 
